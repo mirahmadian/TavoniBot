@@ -27,13 +27,12 @@
         </div>
 
         <div id="step-2" class="hidden">
-            <p class="text-center mb-4 leading-loose">
-                برای دریافت کد تایید، 
-                <a id="baleLink" href="#" target="_blank" class="link link-primary font-bold">اینجا</a>
-                را کلیک کرده و در اپلیکیشن بله دکمه Start/شروع را بزنید.
-            </p>
-            <label class="block mb-2 font-semibold">کد تایید دریافت شده را وارد کنید:</label>
-            <input type="text" id="otpInput" class="input input-bordered w-full mb-4" maxlength="5">
+            <div class="text-center mb-4 leading-loose text-gray-800">
+                <p>برای دریافت کد تایید، <a id="baleLink" href="#" target="_blank" class="link link-primary font-bold">اینجا</a> را کلیک نموده و منتظر بمانید.</p>
+                <p class="text-sm mt-1">کد تایید در پیام رسان بله برای شما ارسال می شود.</p>
+            </div>
+            <label class="block mb-2 font-semibold text-gray-800">کد تایید دریافت شده را وارد کنید:</label>
+            <input type="text" id="otpInput" class="input input-bordered w-full mb-4 text-center font-bold text-lg tracking-[.25em]" maxlength="5" placeholder="- - - - -">
             
             <button id="verifyBtn" onclick="verifyOtp()" class="btn btn-primary w-full">تایید و ورود</button>
             <p id="otp-msg" class="text-sm text-red-500 mt-2 text-center"></p>
@@ -43,10 +42,8 @@
     <script>
         // --- تنظیمات اصلی ---
         const API_BACKEND_URL = "https://tavonibot.onrender.com";
-        // !! مهم: نام کاربری ربات بله خود را اینجا وارد کنید
-        const BALE_BOT_USERNAME = "TavoniBot"; 
+        const BALE_BOT_USERNAME = "TavoniBot"; // این نام کاربری را قبلا تصحیح کردیم
 
-        // برای نگهداری کد ملی بین مراحل
         let currentNationalId = "";
 
         async function generateLink() {
@@ -56,7 +53,7 @@
             const sendBtn = document.getElementById('sendCodeBtn');
             
             msgEl.textContent = '';
-            currentNationalId = nationalId; // ذخیره کد ملی برای مرحله تایید
+            currentNationalId = nationalId;
 
             if (!/^\d{10}$/.test(nationalId) || !/^09\d{9}$/.test(phone)) {
                 msgEl.textContent = "لطفاً کد ملی و شماره موبایل را به درستی وارد کنید.";
@@ -67,7 +64,6 @@
             sendBtn.textContent = 'لطفاً صبر کنید...';
 
             try {
-                // ارسال درخواست به بک‌اند برای گرفتن توکن اتصال
                 const response = await fetch(`${API_BACKEND_URL}/generate-linking-token`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -78,11 +74,9 @@
 
                 if (response.ok) {
                     const linkingToken = result.linking_token;
-                    // ساخت لینک هوشمند و قرار دادن آن در دکمه "اینجا"
                     const baleLinkEl = document.getElementById('baleLink');
                     baleLinkEl.href = `https://ble.ir/${BALE_BOT_USERNAME}?start=${linkingToken}`;
                     
-                    // نمایش مرحله دوم
                     document.getElementById('step-1').classList.add('hidden');
                     document.getElementById('step-2').classList.remove('hidden');
                 } else {
@@ -127,7 +121,7 @@
 
                 if (response.ok) {
                     alert('ورود موفقیت‌آمیز بود! به زودی به پنل کاربری منتقل می‌شوید.');
-                    // window.location.href = '/dashboard.html'; // انتقال به صفحه داشبورد
+                    // window.location.href = '/dashboard.html';
                 } else {
                      otpMsgEl.textContent = result.error || "خطای نامشخص."
                 }
