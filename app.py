@@ -1,34 +1,33 @@
-from flask import Flask
-from pyrogram import Client
-import threading
-
-# اطلاعات Bot
-api_id = 123456   # به جای این api_id واقعی خودتان
-api_hash = "your_api_hash"
-bot_token = "توکن بات شما"
+from flask import Flask, request, jsonify
+import requests
+import random
 
 app = Flask(__name__)
 
-@app.route('/')
-def home():
-    return 'Bot is running'
+BOT_TOKEN = "1004378078:xtkieq2LxVCvzbAwUHjElG7dHosvq8U2twSdS6OW"
+API_URL = f"https://api.bale.ai/bot{BOT_TOKEN}/sendMessage"
 
-def start_bot():
-    app_bot = Client(
-        "tavoni-bot",
-        api_id=api_id,
-        api_hash=api_hash,
-        bot_token=bot_token
-    )
+@app.route('/send-code', methods=['POST'])
+def send_code():
+    data = request.json
+    chat_id = data.get("chat_id")
 
-    @app_bot.on_message()
-    def handle_messages(client, message):
-        message.reply_text("سلام! این پیام از Web Service ارسال شده است.")
+    if not chat_id:
+        return jsonify({"error": "chat_id is required"}), 400
 
-    app_bot.run()
+    code = random.randint(1000, 9999)
+
+    message = f"کد تایید شما: {code}"
+
+    response = requests.post(API_URL, json={
+        "chat_id": chat_id,
+        "text": message
+    })
+
+    if response.ok:
+        return jsonify({"message": "کد تایید ارسال شد", "code": code})
+    else:
+        return jsonify({"error": "ارسال پیامک در بله ناموفق بود."}), 500
 
 if __name__ == '__main__':
-    # اجرای بات در یک Thread جدا
-    threading.Thread(target=start_bot).start()
-    # اجرای Flask
     app.run(host='0.0.0.0', port=5000)
