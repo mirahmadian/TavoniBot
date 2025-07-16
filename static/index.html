@@ -80,7 +80,7 @@
                     const linkingToken = result.linking_token;
                     // ساخت لینک هوشمند و قرار دادن آن در دکمه "اینجا"
                     const baleLinkEl = document.getElementById('baleLink');
-                    baleLinkEl.href = `https://ble.ir/bot${BALE_BOT_USERNAME}?start=${linkingToken}`;
+                    baleLinkEl.href = `https://ble.ir/${BALE_BOT_USERNAME}?start=${linkingToken}`;
                     
                     // نمایش مرحله دوم
                     document.getElementById('step-1').classList.add('hidden');
