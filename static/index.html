@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ورود به سامانه تعاونی</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.20/dist/full.min.css" rel="stylesheet" />
     <link href="https://cdn.jsdelivr.net/npm/@fontsource/vazirmatn@latest/index.css" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
@@ -22,98 +21,124 @@
 
             <label class="block mb-2 font-semibold">شماره موبایل خود را وارد کنید:</label>
             <input type="tel" id="phoneInput" class="input input-bordered w-full mb-4" placeholder="مثال: 09123456789" maxlength="11">
-
-            <label class="block mb-2 font-semibold">شناسه کاربری بله (Chat ID):</label>
-            <input type="text" id="chatIdInput" class="input input-bordered w-full mb-4" placeholder="یک عدد چند رقمی">
-            <p class="text-xs text-gray-500 mb-4 -mt-2">برای پیدا کردن شناسه خود، در بله به ربات <span class="font-mono bg-gray-200 p-1 rounded">@userinfobot</span> پیام دهید.</p>
             
-            <button id="sendCodeBtn" onclick="requestOtp()" class="btn btn-success w-full">ارسال کد تایید</button>
+            <button id="sendCodeBtn" onclick="generateLink()" class="btn btn-success w-full">ادامه</button>
             <p id="msg" class="text-sm text-red-500 mt-2 text-center"></p>
         </div>
 
         <div id="step-2" class="hidden">
-            <p class="text-center mb-4">یک کد تایید به حساب بله شما ارسال شد.</p>
-            <label class="block mb-2 font-semibold">کد تایید را وارد کنید:</label>
+            <p class="text-center mb-4 leading-loose">
+                برای دریافت کد تایید، 
+                <a id="baleLink" href="#" target="_blank" class="link link-primary font-bold">اینجا</a>
+                را کلیک کرده و در اپلیکیشن بله دکمه Start/شروع را بزنید.
+            </p>
+            <label class="block mb-2 font-semibold">کد تایید دریافت شده را وارد کنید:</label>
             <input type="text" id="otpInput" class="input input-bordered w-full mb-4" maxlength="5">
             
-            <button onclick="verifyOtp()" class="btn btn-primary w-full">تایید و ورود</button>
+            <button id="verifyBtn" onclick="verifyOtp()" class="btn btn-primary w-full">تایید و ورود</button>
             <p id="otp-msg" class="text-sm text-red-500 mt-2 text-center"></p>
         </div>
     </div>
 
     <script>
-        const supabaseUrl = "https://iqpdwiowrqolqcbnaszt.supabase.co";
-        const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlxcGR3aW93cnFvbHFjYm5hc3p0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0OTA2NjAsImV4cCI6MjA2ODA2NjY2MH0.hAY20i5GBOflnEDYL4Kygn45VPmlP37fEthB9RbH0E4";
-        const supabase = supabase.createClient(supabaseUrl, supabaseAnonKey);
-
-        // آدرس سرور بک‌اند شما که روی Render قرار دارد
+        // --- تنظیمات اصلی ---
         const API_BACKEND_URL = "https://tavonibot.onrender.com";
+        // !! مهم: نام کاربری ربات بله خود را اینجا وارد کنید
+        const BALE_BOT_USERNAME = "1004378078:xtkieq2LxVCvzbAwUHjElG7dHosvq8U2twSdS6OW"; 
 
-        async function requestOtp() {
+        // برای نگهداری کد ملی بین مراحل
+        let currentNationalId = "";
+
+        async function generateLink() {
             const nationalId = document.getElementById('nationalIdInput').value.trim();
             const phone = document.getElementById('phoneInput').value.trim();
-            const chatId = document.getElementById('chatIdInput').value.trim();
             const msgEl = document.getElementById('msg');
             const sendBtn = document.getElementById('sendCodeBtn');
             
             msgEl.textContent = '';
+            currentNationalId = nationalId; // ذخیره کد ملی برای مرحله تایید
 
-            // اعتبارسنجی اولیه
-            if (!/^\d{10}$/.test(nationalId)) {
-                msgEl.textContent = "کد ملی باید ۱۰ رقم باشد.";
-                return;
-            }
-            if (!/^09\d{9}$/.test(phone)) {
-                msgEl.textContent = "شماره موبایل معتبر نیست.";
-                return;
-            }
-            if (!/^\d+$/.test(chatId)) {
-                msgEl.textContent = "شناسه کاربری بله معتبر نیست.";
+            if (!/^\d{10}$/.test(nationalId) || !/^09\d{9}$/.test(phone)) {
+                msgEl.textContent = "لطفاً کد ملی و شماره موبایل را به درستی وارد کنید.";
                 return;
             }
 
-            // غیرفعال کردن دکمه برای جلوگیری از کلیک‌های مکرر
             sendBtn.disabled = true;
-            sendBtn.textContent = 'در حال ارسال...';
+            sendBtn.textContent = 'لطفاً صبر کنید...';
 
             try {
-                // ارسال اطلاعات به سرور (بک‌اند)
-                const response = await fetch(`${API_BACKEND_URL}/request-otp`, {
+                // ارسال درخواست به بک‌اند برای گرفتن توکن اتصال
+                const response = await fetch(`${API_BACKEND_URL}/generate-linking-token`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        national_id: nationalId,
-                        phone_number: phone,
-                        chat_id: chatId
-                    })
+                    body: JSON.stringify({ national_id: nationalId })
                 });
 
                 const result = await response.json();
 
                 if (response.ok) {
-                    // اگر سرور با موفقیت پاسخ داد، به مرحله بعد برو
+                    const linkingToken = result.linking_token;
+                    // ساخت لینک هوشمند و قرار دادن آن در دکمه "اینجا"
+                    const baleLinkEl = document.getElementById('baleLink');
+                    baleLinkEl.href = `https://ble.ir/bot${BALE_BOT_USERNAME}?start=${linkingToken}`;
+                    
+                    // نمایش مرحله دوم
                     document.getElementById('step-1').classList.add('hidden');
                     document.getElementById('step-2').classList.remove('hidden');
                 } else {
-                    // نمایش خطایی که از سمت سرور آمده
-                    msgEl.textContent = result.error || 'خطایی رخ داد. لطفاً دوباره تلاش کنید.';
+                    msgEl.textContent = result.error || 'خطایی از سمت سرور رخ داد.';
                 }
 
             } catch (error) {
                 console.error('Fetch Error:', error);
                 msgEl.textContent = 'خطا در برقراری ارتباط با سرور.';
             } finally {
-                // فعال کردن مجدد دکمه
                 sendBtn.disabled = false;
-                sendBtn.textContent = 'ارسال کد تایید';
+                sendBtn.textContent = 'ادامه';
             }
         }
 
         async function verifyOtp() {
-            // این تابع را در مرحله بعدی خواهیم نوشت.
-            // فعلا فقط یک پیام نمایش می‌دهیم.
+            const otpCode = document.getElementById('otpInput').value.trim();
             const otpMsgEl = document.getElementById('otp-msg');
-            otpMsgEl.textContent = "این بخش هنوز تکمیل نشده است.";
+            const verifyBtn = document.getElementById('verifyBtn');
+
+            otpMsgEl.textContent = '';
+
+            if (!/^\d{5}$/.test(otpCode)) {
+                otpMsgEl.textContent = "کد تایید باید ۵ رقم باشد.";
+                return;
+            }
+
+            verifyBtn.disabled = true;
+            verifyBtn.textContent = 'در حال بررسی...';
+
+            try {
+                const response = await fetch(`${API_BACKEND_URL}/verify-otp`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        national_id: currentNationalId,
+                        otp_code: otpCode
+                    })
+                });
+                
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert('ورود موفقیت‌آمیز بود! به زودی به پنل کاربری منتقل می‌شوید.');
+                    // window.location.href = '/dashboard.html'; // انتقال به صفحه داشبورد
+                } else {
+                     otpMsgEl.textContent = result.error || "خطای نامشخص."
+                }
+
+            } catch(error) {
+                console.error("Verify Fetch Error:", error);
+                otpMsgEl.textContent = "خطا در ارتباط با سرور."
+            } finally {
+                verifyBtn.disabled = false;
+                verifyBtn.textContent = 'تایید و ورود';
+            }
         }
     </script>
 </body>
