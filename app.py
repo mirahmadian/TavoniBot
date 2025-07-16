@@ -5,10 +5,11 @@ from flask_cors import CORS
 import requests
 import random
 import os
-import time  # برای ذخیره زمان انقضای کد
+import time
+import secrets # ماژول امن برای تولید توکن
 
 app = Flask(__name__, static_folder='static')
-CORS(app)  # فعال‌سازی CORS
+CORS(app)
 
 # --- تنظیمات ---
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
@@ -16,11 +17,9 @@ if not BOT_TOKEN:
     print("FATAL: BOT_TOKEN environment variable not set.")
 BALE_API_URL = f"https://tapi.bale.ai/bot{BOT_TOKEN}/sendMessage"
 
-# --- ذخیره‌سازی موقت کدها ---
-# نکته: این یک روش ذخیره‌سازی موقت در حافظه است.
-# اگر سرور ری‌استارت شود، این اطلاعات پاک می‌شود.
-# در نسخه‌های بعدی می‌توانیم این را به پایگاه داده Supabase منتقل کنیم.
-otp_storage = {}
+# --- فضاهای ذخیره‌سازی موقت در حافظه ---
+linking_tokens = {} # برای نگهداری توکن‌های اتصال: {token: national_id}
+otp_storage = {}    # برای نگهداری کدهای OTP: {national_id: {code, chat_id, timestamp}}
 
 
 # --- مسیر اصلی برای نمایش سایت ---
@@ -29,55 +28,72 @@ def serve_index():
     return send_from_directory(app.static_folder, 'index.html')
 
 
-# --- مسیر دریافت درخواست کد تایید ---
-@app.route('/request-otp', methods=['POST'])
-def request_otp():
+# --- قدم ۱: تولید توکن اتصال برای فرانت‌اند ---
+@app.route('/generate-linking-token', methods=['POST'])
+def generate_linking_token():
     data = request.get_json()
-    if not data:
-        return jsonify({"error": "درخواست نامعتبر است."}), 400
-
     national_id = data.get('national_id')
-    phone_number = data.get('phone_number')
-    chat_id = data.get('chat_id')
 
-    if not all([national_id, phone_number, chat_id]):
-        return jsonify({"error": "لطفاً تمام فیلدها را پر کنید."}), 400
+    if not national_id:
+        return jsonify({"error": "کد ملی ارسال نشده است."}), 400
 
-    # TODO: در اینجا باید چک کنید که آیا کد ملی در لیست اعضای تعاونی شما هست یا خیر.
-    # این کار با یک کوئری به پایگاه داده Supabase انجام خواهد شد.
+    # TODO: چک کردن وجود کد ملی در پایگاه داده اعضای تعاونی
 
-    # تولید کد ۵ رقمی
-    otp_code = random.randint(10000, 99999)
+    # تولید یک توکن امن و منحصر به فرد
+    token = secrets.token_urlsafe(16)
+    linking_tokens[token] = national_id
+
+    print(f"Generated linking token for NID {national_id}: {token}") # برای دیباگ
     
-    # ارسال پیام به کاربر از طریق ربات بله
-    message_text = f"کد تایید شما برای ورود به سامانه تعاونی: {otp_code}"
-    payload = {"chat_id": chat_id, "text": message_text}
+    # ارسال توکن به فرانت‌اند
+    return jsonify({"linking_token": token})
+
+
+# --- قدم ۲: دریافت پیام از بله و مدیریت توکن ---
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    data = request.get_json()
+    if not data or "message" not in data:
+        return "ok", 200 # پاسخی که بله متوجه شود پیام دریافت شده
+
+    message = data['message']
+    chat_id = message['chat']['id']
+    text = message.get('text', '')
+
+    # بررسی اینکه آیا پیام حاوی توکن اتصال است
+    if text.startswith('/start '):
+        token = text.split(' ', 1)[1] # جدا کردن توکن از دستور /start
+
+        # بررسی وجود توکن در فضای ذخیره‌سازی
+        if token in linking_tokens:
+            national_id = linking_tokens[token]
+            
+            # تولید کد OTP
+            otp_code = random.randint(10000, 99999)
+
+            # ذخیره کد OTP برای این کاربر
+            otp_storage[national_id] = {
+                "code": str(otp_code),
+                "chat_id": chat_id,
+                "timestamp": time.time()
+            }
+            
+            # ارسال کد OTP به کاربر در بله
+            message_text = f"کد تایید شما برای ورود به سامانه: {otp_code}"
+            requests.post(BALE_API_URL, json={"chat_id": chat_id, "text": message_text})
+            
+            print(f"Sent OTP to NID {national_id} via chat_id {chat_id}") # برای دیباگ
+
+            # حذف توکن استفاده شده برای جلوگیری از استفاده مجدد
+            del linking_tokens[token]
+        else:
+            # اگر توکن نامعتبر بود
+            requests.post(BALE_API_URL, json={"chat_id": chat_id, "text": "لینک ورود شما نامعتبر یا منقضی شده است. لطفاً از سایت دوباره اقدام کنید."})
     
-    try:
-        response = requests.post(BALE_API_URL, json=payload, timeout=10)
-        if response.status_code != 200:
-            # اگر ارسال پیام در بله با خطا مواجه شد
-            print(f"Bale API Error: {response.text}")
-            return jsonify({"error": "خطا در ارسال کد تایید. لطفاً شناسه بله خود را چک کنید."}), 500
-    except requests.exceptions.RequestException as e:
-        # اگر سرور بله در دسترس نبود
-        print(f"Network Error: {e}")
-        return jsonify({"error": "خطا در ارتباط با سرویس بله."}), 500
-
-    # ذخیره کد تایید و زمان تولید آن
-    # کد ملی را به عنوان کلید در نظر می‌گیریم
-    otp_storage[national_id] = {
-        "code": str(otp_code),  # کد را به صورت رشته ذخیره می‌کنیم
-        "chat_id": chat_id,
-        "timestamp": time.time() # زمان فعلی را ذخیره می‌کنیم تا بعداً برای انقضا استفاده کنیم
-    }
-
-    print(f"Generated OTP {otp_code} for National ID {national_id}") # برای دیباگ در لاگ‌های Render
-    
-    return jsonify({"message": "کد تایید با موفقیت به حساب بله شما ارسال شد."})
+    return "ok", 200
 
 
-# این تابع را در مرحله بعد تکمیل خواهیم کرد
+# --- قدم ۳: تایید نهایی کد (در آینده تکمیل می‌شود) ---
 @app.route('/verify-otp', methods=['POST'])
 def verify_otp():
     return jsonify({"message": "این بخش هنوز تکمیل نشده است."})
