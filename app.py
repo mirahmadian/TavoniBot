@@ -15,8 +15,8 @@ app = Flask(__name__, static_folder='static')
 CORS(app)
 
 # --- تنظیمات و اتصالات ---
+# ... (این بخش بدون تغییر است) ...
 OTP_EXPIRATION_SECONDS = 120
-
 try:
     BOT_TOKEN = os.environ.get("BOT_TOKEN")
     BALE_API_URL = f"https://tapi.bale.ai/bot{BOT_TOKEN}/sendMessage"
@@ -30,14 +30,21 @@ except Exception as e:
 otp_storage = {}
 linking_tokens = {}
 
-# --- مسیر اصلی ---
+# --- مسیر اصلی برای نمایش سایت ---
 @app.route('/')
 def serve_index():
     return send_from_directory(app.static_folder, 'index.html')
 
-# --- مسیر خواندن پروفایل ---
+# --- مسیر جدید برای نمایش صفحه پروفایل ---
+@app.route('/profile.html')
+def serve_profile():
+    # این دستور به فلسک می‌گوید که فایل profile.html را از پوشه static پیدا کرده و نمایش دهد
+    return send_from_directory(app.static_folder, 'profile.html')
+
+# --- مسیر خواندن اطلاعات پروفایل ---
 @app.route('/get-user-profile')
 def get_user_profile():
+    # ... (این تابع بدون تغییر است) ...
     national_id = request.args.get('nid')
     if not national_id:
         return jsonify({"error": "کد ملی ارسال نشده است."}), 400
@@ -54,9 +61,10 @@ def get_user_profile():
         print(f"Database SELECT Error: {e}")
         return jsonify({"error": "خطا در ارتباط با پایگاه داده."}), 500
 
-# --- مسیر تولید توکن ---
+# --- بقیه مسیرهای API (بدون تغییر) ---
 @app.route('/generate-linking-token', methods=['POST'])
 def generate_linking_token():
+    # ... (بدون تغییر) ...
     data = request.get_json()
     national_id = data.get('national_id')
     if not national_id:
@@ -65,20 +73,14 @@ def generate_linking_token():
     linking_tokens[token] = national_id
     return jsonify({"linking_token": token})
 
-# --- مسیر وب‌هوک (اصلاح شده) ---
 @app.route('/webhook', methods=['POST'])
 def webhook():
+    # ... (بدون تغییر) ...
     data = request.get_json()
-    if not data or "message" not in data:
-        return "ok", 200
-    
-    # --- این بخش اصلاح شد ---
-    # به جای یک خط پیچیده، از سه خط ساده استفاده می‌کنیم
+    if not data or "message" not in data: return "ok", 200
     message = data['message']
     chat_id = message['chat']['id']
     text = message.get('text', '')
-    # --- پایان بخش اصلاح شده ---
-
     if text.startswith('/start '):
         token = text.split(' ', 1)[1]
         if token in linking_tokens:
@@ -88,9 +90,9 @@ def webhook():
             requests.post(BALE_API_URL, json={"chat_id": chat_id, "text": f"کد تایید شما: {otp_code}"})
     return "ok", 200
 
-# --- مسیر تایید کد ---
 @app.route('/verify-otp', methods=['POST'])
 def verify_otp():
+    # ... (بدون تغییر) ...
     data = request.get_json()
     national_id, otp_code = data.get('national_id'), data.get('otp_code')
     if not all([national_id, otp_code]): return jsonify({"error": "اطلاعات ناقص است."}), 400
