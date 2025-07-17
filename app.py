@@ -56,18 +56,19 @@ def get_user_profile():
     except Exception as e:
         return jsonify({"error": f"Database Error: {str(e)}"}), 500
 
-# --- مسیر تولید توکن (اصلاح نهایی) ---
+# --- مسیر تولید توکن (با کد هوشمند و نهایی) ---
 @app.route('/generate-linking-token', methods=['POST'])
 def generate_linking_token():
-    # از silent=True استفاده می‌کنیم تا در صورت نبود JSON، خطا ندهد و None برگرداند
     data = request.get_json(silent=True)
     
-    # اگر بدنه درخواست خالی یا فرمت آن اشتباه باشد
     if data is None:
         return jsonify({"error": "فرمت درخواست ارسالی صحیح نیست."}), 400
 
-    national_id = data.get('national_id')
-    phone_number = data.get('phone_number')
+    # --- بخش اصلاح شده و هوشمند ---
+    # ما هر دو حالت نام‌گذاری را چک می‌کنیم
+    national_id = data.get('national_id') or data.get('nationalId')
+    phone_number = data.get('phone_number') or data.get('phoneNumber')
+    # --- پایان بخش اصلاح شده ---
 
     if not all([national_id, phone_number]):
         return jsonify({"error": "کد ملی و شماره موبایل در درخواست یافت نشد."}), 400
