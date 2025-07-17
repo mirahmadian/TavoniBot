@@ -70,7 +70,7 @@ def generate_linking_token():
     phone_number = data.get('phone_number') # شماره موبایل را هم دریافت می‌کنیم
 
     if not all([national_id, phone_number]):
-        return jsonify({"error": "کد ملی و شماره موبایل الزامی است."}), 400
+        return jsonify({"error": "کد ملی واردد شده در سامانه ثبت نشده است"}), 400
     
     try:
         # --- اعتبار سنجی جدید - بخش اول: بررسی وجود کد ملی ---
