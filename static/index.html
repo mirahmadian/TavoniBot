@@ -9,7 +9,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { font-family: Vazirmatn, sans-serif; background: linear-gradient(to right, #a8e6cf, #dcedc1); }
-        /* استایل برای نمایش بهتر متن دیباگ */
         #modal_message { white-space: pre-wrap; text-align: left; direction: ltr; }
     </style>
 </head>
@@ -24,7 +23,7 @@
             <button id="sendCodeBtn" onclick="generateLink()" class="btn btn-success w-full">ادامه</button>
             <p id="msg" class="text-sm text-red-500 mt-2 text-center"></p>
         </div>
-        </div>
+    </div>
 
     <dialog id="message_modal" class="modal">
         <div class="modal-box max-w-2xl text-center">
@@ -39,14 +38,10 @@
     <script>
         const API_BACKEND_URL = "https://tavonibot.onrender.com";
 
-        function showModal(title, message, isSuccess) {
+        function showModal(title, message) {
             const modal = document.getElementById('message_modal');
             document.getElementById('modal_title').textContent = title;
             document.getElementById('modal_message').textContent = message;
-            const modalButton = document.getElementById('modal_button');
-            modalButton.className = 'btn';
-            if (isSuccess) { modalButton.classList.add('btn-success'); } 
-            else { modalButton.classList.add('btn-error'); }
             modal.showModal();
         }
 
@@ -65,26 +60,22 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        national_id: nationalId,
-                        phone_number: phone
+                        nationalId: nationalId,
+                        phoneNumber: phone
                     })
                 });
 
                 const result = await response.json();
 
-                // --- بخش اصلاح شده برای نمایش اطلاعات دیباگ ---
                 if (response.ok && result.message === "DEBUGGING_INFORMATION") {
-                    const debugText = JSON.stringify(result, null, 2); // فرمت‌بندی جیسون برای خوانایی
-                    showModal('Debugging Information', debugText, false);
+                    const debugText = JSON.stringify(result, null, 2);
+                    showModal('Debugging Information', debugText);
                 } else {
-                    // مدیریت خطاهای عادی
                     msgEl.textContent = result.error || 'یک خطای ناشناخته رخ داد.';
                 }
-                // --- پایان بخش اصلاح شده ---
 
             } catch (error) {
-                console.error('Fetch Error:', error);
-                showModal('خطا', 'خطا در برقراری ارتباط با سرور.', false);
+                showModal('خطا', 'خطا در برقراری ارتباط با سرور.');
             } finally {
                 sendBtn.disabled = false;
                 sendBtn.textContent = 'ادامه';

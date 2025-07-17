@@ -38,6 +38,3 @@ def generate_linking_token_debug():
 
     except Exception as e:
         return jsonify({"error": f"Error during debug: {str(e)}"}), 500
-
-# ما بقیه توابع را موقتاً غیرفعال می‌کنیم تا تداخلی ایجاد نکنند
-# ...
