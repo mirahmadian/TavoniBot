@@ -48,28 +48,24 @@
 
     <script>
         const API_BACKEND_URL = "https://tavonibot.onrender.com";
-        const BALE_BOT_USERNAME = "TavoniBot";
+        const BALE_BOT_USERNAME = "TavoniBot"; 
         let currentNationalId = "";
 
-        // تابع جدید برای نمایش پاپ‌آپ
         function showModal(title, message, isSuccess) {
             const modal = document.getElementById('message_modal');
             document.getElementById('modal_title').textContent = title;
             document.getElementById('modal_message').textContent = message;
-            
             const modalButton = document.getElementById('modal_button');
-            modalButton.className = 'btn'; // Reset classes
+            modalButton.className = 'btn';
             if (isSuccess) {
                 modalButton.classList.add('btn-success');
             } else {
                 modalButton.classList.add('btn-error');
             }
-            
             modal.showModal();
         }
 
         async function generateLink() {
-            // این تابع بدون تغییر باقی می‌ماند
             const nationalId = document.getElementById('nationalIdInput').value.trim();
             const phone = document.getElementById('phoneInput').value.trim();
             const msgEl = document.getElementById('msg');
@@ -132,11 +128,17 @@
                 const result = await response.json();
 
                 if (response.ok) {
-                    // استفاده از پاپ‌آپ جدید به جای alert
-                    showModal('ورود موفقیت‌آمیز', 'شما با موفقیت وارد شدید و به زودی به پنل کاربری منتقل می‌شوید.', true);
-                    // window.location.href = '/dashboard.html';
+                    // نمایش پیام موفقیت
+                    showModal('ورود موفقیت‌آمیز', 'شما با موفقیت وارد شدید. برای ورود به پنل کاربری، این پنجره را ببندید.', true);
+                    
+                    // --- کد جدید برای هدایت کاربر ---
+                    // ما منتظر می‌مانیم تا کاربر پاپ‌آپ را ببندد و سپس او را به صفحه پروفایل هدایت می‌کنیم
+                    const modal = document.getElementById('message_modal');
+                    modal.addEventListener('close', () => {
+                        window.location.href = `profile.html?nid=${currentNationalId}`;
+                    }, { once: true }); // { once: true } یعنی این دستور فقط یک بار اجرا شود
+
                 } else {
-                     // استفاده از پاپ‌آپ جدید برای نمایش خطا
                      showModal('خطا', result.error || "خطای نامشخص.", false);
                 }
 
