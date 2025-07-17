@@ -1,3 +1,4 @@
 requests
 Flask
 Flask-CORS
+supabase
