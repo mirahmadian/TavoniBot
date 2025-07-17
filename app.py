@@ -16,7 +16,6 @@ CORS(app)
 
 # --- تنظیمات و اتصالات ---
 OTP_EXPIRATION_SECONDS = 120
-
 try:
     BOT_TOKEN = os.environ.get("BOT_TOKEN")
     BALE_API_URL = f"https://tapi.bale.ai/bot{BOT_TOKEN}/sendMessage"
@@ -30,31 +29,25 @@ except Exception as e:
 otp_storage = {}
 linking_tokens = {}
 
-# --- مسیر اصلی ---
+# --- مسیر اصلی و پروفایل ---
 @app.route('/')
 def serve_index():
     return send_from_directory(app.static_folder, 'index.html')
 
-# --- مسیر صفحه پروفایل ---
 @app.route('/profile.html')
 def serve_profile():
     return send_from_directory(app.static_folder, 'profile.html')
 
-# --- مسیر خواندن پروفایل (با نام جدول اصلاح شده) ---
+# --- مسیر خواندن پروفایل (با مدیریت خطای جدید برای دیباگ) ---
 @app.route('/get-user-profile')
 def get_user_profile():
     national_id = request.args.get('nid')
     if not national_id:
         return jsonify({"error": "کد ملی ارسال نشده است."}), 400
     try:
-        # --- این خط اصلاح شد ---
-        # از 'member' به جای 'members' استفاده می‌کنیم
         response = supabase.table('member').select("first_name, last_name, nationalcode, phonenumber, email, address, postal_code").eq('nationalcode', national_id).single().execute()
-        # --- پایان بخش اصلاح شده ---
-        
         if response.data:
             user_data = response.data
-            # چون فرانت‌اند منتظر 'national_id' است، نام کلید را تغییر می‌دهیم
             if 'nationalcode' in user_data:
                 user_data['national_id'] = user_data.pop('nationalcode')
             if 'phonenumber' in user_data:
@@ -64,18 +57,19 @@ def get_user_profile():
             return jsonify({"error": "کاربری با این کد ملی یافت نشد."}), 404
             
     except Exception as e:
-        print(f"Database SELECT Error: {e}")
-        return jsonify({"error": "خطا در ارتباط با پایگاه داده."}), 500
+        # --- بخش تغییر یافته برای دیباگ ---
+        # ما متن اصلی خطا را به فرانت‌اند می‌فرستیم
+        error_message = f"Database Error: {str(e)}"
+        print(error_message) # این خط را نگه می‌داریم تا در لاگ هم چاپ شود
+        return jsonify({"error": error_message}), 500
+        # --- پایان بخش تغییر یافته ---
 
 # --- بقیه مسیرهای API (بدون تغییر) ---
-# ... (تمام توابع دیگر مانند generate_linking_token, webhook, verify_otp بدون تغییر باقی می‌مانند) ...
-
 @app.route('/generate-linking-token', methods=['POST'])
 def generate_linking_token():
     data = request.get_json()
     national_id = data.get('national_id')
     if not national_id: return jsonify({"error": "کد ملی ارسال نشده است."}), 400
-    # TODO: چک کردن کد ملی در پایگاه داده
     token = secrets.token_urlsafe(16)
     linking_tokens[token] = national_id
     return jsonify({"linking_token": token})
