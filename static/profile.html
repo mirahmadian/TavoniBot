@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تکمیل پروفایل - سامانه تعاونی</title>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.20/dist/full.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/@fontsource/vazirmatn@latest/index.css" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: Vazirmatn, sans-serif; background: linear-gradient(to right, #a8e6cf, #dcedc1); }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+    <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-lg">
+        <h1 class="text-2xl font-bold text-center mb-6">تکمیل اطلاعات پروفایل</h1>
+        <p id="loading_message" class="text-center">در حال بارگذاری اطلاعات...</p>
+        
+        <div id="profile_form" class="hidden">
+            <div class="mb-4">
+                <label class="block mb-2 font-semibold">نام و نام خانوادگی:</label>
+                <input type="text" id="fullName" class="input input-bordered w-full bg-gray-100" disabled>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block mb-2 font-semibold">کد ملی:</label>
+                    <input type="text" id="nationalId" class="input input-bordered w-full bg-gray-100" disabled>
+                </div>
+                <div>
+                    <label class="block mb-2 font-semibold">شماره موبایل:</label>
+                    <input type="text" id="phone" class="input input-bordered w-full bg-gray-100" disabled>
+                </div>
+            </div>
+
+            <hr class="my-6">
+
+            <div class="mb-4">
+                <label class="block mb-2 font-semibold">کد پستی:</label>
+                <input type="text" id="postalCode" class="input input-bordered w-full" placeholder="کد پستی ۱۰ رقمی خود را وارد کنید">
+            </div>
+            <div class="mb-4">
+                <label class="block mb-2 font-semibold">آدرس:</label>
+                <textarea id="address" class="textarea textarea-bordered w-full" rows="3" placeholder="آدرس دقیق محل سکونت"></textarea>
+            </div>
+
+            <button id="saveBtn" onclick="updateProfile()" class="btn btn-primary w-full mt-4">ذخیره اطلاعات</button>
+        </div>
+    </div>
+    
+    <dialog id="message_modal" class="modal">
+        <div class="modal-box text-center">
+            <h3 id="modal_title" class="font-bold text-lg"></h3>
+            <p id="modal_message" class="py-4"></p>
+            <div class="modal-action justify-center">
+                <form method="dialog"><button id="modal_button" class="btn">بستن</button></form>
+            </div>
+        </div>
+    </dialog>
+
+<script>
+    const API_BACKEND_URL = "https://tavonibot.onrender.com";
+    let currentNationalId = '';
+
+    // تابع نمایش پاپ‌آپ
+    function showModal(title, message, isSuccess) {
+        // ... (این تابع مانند فایل index.html است)
+    }
+
+    // این تابع هنگام بارگذاری صفحه اجرا می‌شود
+    window.onload = function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        currentNationalId = urlParams.get('nid');
+
+        if (!currentNationalId) {
+            document.getElementById('loading_message').textContent = 'خطا: مشخصات کاربر یافت نشد. لطفاً دوباره وارد شوید.';
+            return;
+        }
+        
+        fetchUserProfile();
+    };
+
+    // گرفتن اطلاعات کاربر از سرور
+    async function fetchUserProfile() {
+        try {
+            const response = await fetch(`${API_BACKEND_URL}/get-user-profile?nid=${currentNationalId}`);
+            const data = await response.json();
+
+            if (response.ok) {
+                // پر کردن فرم با اطلاعات دریافتی
+                document.getElementById('fullName').value = data.full_name;
+                document.getElementById('nationalId').value = data.national_id;
+                document.getElementById('phone').value = data.phone_number;
+                document.getElementById('postalCode').value = data.postal_code || '';
+                document.getElementById('address').value = data.address || '';
+                
+                // نمایش فرم و پنهان کردن پیام بارگذاری
+                document.getElementById('loading_message').classList.add('hidden');
+                document.getElementById('profile_form').classList.remove('hidden');
+            } else {
+                document.getElementById('loading_message').textContent = data.error;
+            }
+        } catch (error) {
+            document.getElementById('loading_message').textContent = 'خطا در ارتباط با سرور.';
+        }
+    }
+
+    // ذخیره اطلاعات جدید کاربر
+    async function updateProfile() {
+        // ... (این تابع را در مراحل بعدی تکمیل می‌کنیم)
+        alert('این دکمه هنوز کار نمی‌کند!');
+    }
+</script>
+</body>
+</html>
