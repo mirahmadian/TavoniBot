@@ -12,7 +12,11 @@ import secrets
 load_dotenv()
 
 app = Flask(__name__, static_folder='static')
-CORS(app)
+
+# --- بخش اصلاح شده ---
+# ما تنظیمات CORS را به شکل صریح‌تر و بازتر تعریف می‌کنیم
+CORS(app, resources={r"/*": {"origins": "*"}})
+# --- پایان بخش اصلاح شده ---
 
 # --- تنظیمات و اتصالات ---
 OTP_EXPIRATION_SECONDS = 120
@@ -56,41 +60,32 @@ def get_user_profile():
     except Exception as e:
         return jsonify({"error": f"Database Error: {str(e)}"}), 500
 
-# --- مسیر تولید توکن (با کد هوشمند و نهایی) ---
+# --- مسیر تولید توکن ---
 @app.route('/generate-linking-token', methods=['POST'])
 def generate_linking_token():
     data = request.get_json(silent=True)
-    
     if data is None:
         return jsonify({"error": "فرمت درخواست ارسالی صحیح نیست."}), 400
-
-    # --- بخش اصلاح شده و هوشمند ---
-    # ما هر دو حالت نام‌گذاری را چک می‌کنیم
     national_id = data.get('national_id') or data.get('nationalId')
     phone_number = data.get('phone_number') or data.get('phoneNumber')
-    # --- پایان بخش اصلاح شده ---
-
     if not all([national_id, phone_number]):
         return jsonify({"error": "کد ملی و شماره موبایل در درخواست یافت نشد."}), 400
-    
     try:
         response = supabase.table('member').select("nationalcode").eq('nationalcode', national_id).execute()
         if not response.data:
             return jsonify({"error": "کد ملی وارد شده در سامانه ثبت نشده است."}), 404
-
         response = supabase.table('member').select("nationalcode").eq('phonenumber', phone_number).neq('nationalcode', national_id).execute()
         if response.data:
             return jsonify({"error": "این شماره موبایل قبلاً برای عضو دیگری ثبت شده است."}), 409
-
     except Exception as e:
         print(f"Validation DB Error: {e}")
         return jsonify({"error": "خطا در بررسی اطلاعات."}), 500
-
     token = secrets.token_urlsafe(16)
     linking_tokens[token] = national_id
     return jsonify({"linking_token": token})
 
 # --- بقیه مسیرهای API (بدون تغییر) ---
+# ... (توابع webhook و verify-otp و if __name__ == '__main__':) ...
 @app.route('/webhook', methods=['POST'])
 def webhook():
     data = request.get_json()
