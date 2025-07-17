@@ -29,6 +29,7 @@ except Exception as e:
 otp_storage = {}
 linking_tokens = {}
 
+
 # --- مسیر اصلی و پروفایل ---
 @app.route('/')
 def serve_index():
@@ -38,18 +39,14 @@ def serve_index():
 def serve_profile():
     return send_from_directory(app.static_folder, 'profile.html')
 
-# --- مسیر خواندن پروفایل (بدون درخواست ایمیل) ---
+# --- مسیر خواندن پروفایل ---
 @app.route('/get-user-profile')
 def get_user_profile():
     national_id = request.args.get('nid')
     if not national_id:
         return jsonify({"error": "کد ملی ارسال نشده است."}), 400
     try:
-        # --- این خط اصلاح شد ---
-        # کلمه 'email' از لیست ستون‌های درخواستی حذف شد
         response = supabase.table('member').select("first_name, last_name, nationalcode, phonenumber, address, postal_code").eq('nationalcode', national_id).single().execute()
-        # --- پایان بخش اصلاح شده ---
-        
         if response.data:
             user_data = response.data
             if 'nationalcode' in user_data:
@@ -59,24 +56,48 @@ def get_user_profile():
             return jsonify(user_data)
         else:
             return jsonify({"error": "کاربری با این کد ملی یافت نشد."}), 404
-            
     except Exception as e:
         error_message = f"Database Error: {str(e)}"
         print(error_message)
         return jsonify({"error": error_message}), 500
 
-# --- بقیه مسیرهای API (بدون تغییر) ---
+
+# --- مسیر تولید توکن (با اعتبارسنجی جدید) ---
 @app.route('/generate-linking-token', methods=['POST'])
 def generate_linking_token():
     data = request.get_json()
     national_id = data.get('national_id')
-    if not national_id: return jsonify({"error": "کد ملی ارسال نشده است."}), 400
+    phone_number = data.get('phone_number') # شماره موبایل را هم دریافت می‌کنیم
+
+    if not all([national_id, phone_number]):
+        return jsonify({"error": "کد ملی و شماره موبایل الزامی است."}), 400
+    
+    try:
+        # --- اعتبار سنجی جدید - بخش اول: بررسی وجود کد ملی ---
+        response = supabase.table('member').select("nationalcode").eq('nationalcode', national_id).execute()
+        if not response.data:
+            return jsonify({"error": "کد ملی وارد شده در سامانه ثبت نشده است."}), 404
+
+        # --- اعتبار سنجی جدید - بخش دوم: بررسی تکراری نبودن شماره موبایل ---
+        # آیا این شماره برای فرد دیگری ثبت شده است؟
+        response = supabase.table('member').select("nationalcode").eq('phonenumber', phone_number).neq('nationalcode', national_id).execute()
+        if response.data:
+            return jsonify({"error": "این شماره موبایل قبلاً برای عضو دیگری ثبت شده است."}), 409 # 409 Conflict
+
+    except Exception as e:
+        print(f"Validation DB Error: {e}")
+        return jsonify({"error": "خطا در بررسی اطلاعات."}), 500
+
+    # اگر همه بررسی‌ها موفق بود، توکن را تولید و ارسال کن
     token = secrets.token_urlsafe(16)
     linking_tokens[token] = national_id
     return jsonify({"linking_token": token})
 
+
+# --- بقیه مسیرهای API (بدون تغییر) ---
 @app.route('/webhook', methods=['POST'])
 def webhook():
+    # ... (بدون تغییر) ...
     data = request.get_json()
     if not data or "message" not in data: return "ok", 200
     message = data['message']
@@ -93,6 +114,7 @@ def webhook():
 
 @app.route('/verify-otp', methods=['POST'])
 def verify_otp():
+    # ... (بدون تغییر) ...
     data = request.get_json()
     national_id, otp_code = data.get('national_id'), data.get('otp_code')
     if not all([national_id, otp_code]): return jsonify({"error": "اطلاعات ناقص است."}), 400
@@ -106,6 +128,7 @@ def verify_otp():
         return jsonify({"message": "ورود با موفقیت انجام شد!"})
     else:
         return jsonify({"error": "کد وارد شده صحیح نیست."}), 400
+
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
