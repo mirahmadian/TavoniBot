@@ -29,7 +29,6 @@ except Exception as e:
 otp_storage = {}
 linking_tokens = {}
 
-
 # --- مسیر اصلی و پروفایل ---
 @app.route('/')
 def serve_index():
@@ -61,34 +60,34 @@ def get_user_profile():
         print(error_message)
         return jsonify({"error": error_message}), 500
 
-
-# --- مسیر تولید توکن (با اعتبارسنجی جدید) ---
+# --- مسیر تولید توکن (با دستور print برای دیباگ) ---
 @app.route('/generate-linking-token', methods=['POST'])
 def generate_linking_token():
     data = request.get_json()
     national_id = data.get('national_id')
-    phone_number = data.get('phone_number') # شماره موبایل را هم دریافت می‌کنیم
+    phone_number = data.get('phone_number')
+
+    # --- خط جدید برای دیباگ ---
+    # ما کد ملی دریافتی را در لاگ‌ها چاپ می‌کنیم تا آن را ببینیم
+    print(f"Received national_id from browser: '{national_id}'")
+    # --- پایان خط دیباگ ---
 
     if not all([national_id, phone_number]):
-        return jsonify({"error": "کد ملی وارد شده در سامانه ثبت نشده است"}), 400
+        return jsonify({"error": "کد ملی و شماره موبایل الزامی است."}), 400
     
     try:
-        # --- اعتبار سنجی جدید - بخش اول: بررسی وجود کد ملی ---
         response = supabase.table('member').select("nationalcode").eq('nationalcode', national_id).execute()
         if not response.data:
             return jsonify({"error": "کد ملی وارد شده در سامانه ثبت نشده است."}), 404
 
-        # --- اعتبار سنجی جدید - بخش دوم: بررسی تکراری نبودن شماره موبایل ---
-        # آیا این شماره برای فرد دیگری ثبت شده است؟
         response = supabase.table('member').select("nationalcode").eq('phonenumber', phone_number).neq('nationalcode', national_id).execute()
         if response.data:
-            return jsonify({"error": "این شماره موبایل قبلاً برای عضو دیگری ثبت شده است."}), 409 # 409 Conflict
+            return jsonify({"error": "این شماره موبایل قبلاً برای عضو دیگری ثبت شده است."}), 409
 
     except Exception as e:
         print(f"Validation DB Error: {e}")
         return jsonify({"error": "خطا در بررسی اطلاعات."}), 500
 
-    # اگر همه بررسی‌ها موفق بود، توکن را تولید و ارسال کن
     token = secrets.token_urlsafe(16)
     linking_tokens[token] = national_id
     return jsonify({"linking_token": token})
@@ -97,7 +96,6 @@ def generate_linking_token():
 # --- بقیه مسیرهای API (بدون تغییر) ---
 @app.route('/webhook', methods=['POST'])
 def webhook():
-    # ... (بدون تغییر) ...
     data = request.get_json()
     if not data or "message" not in data: return "ok", 200
     message = data['message']
@@ -114,7 +112,6 @@ def webhook():
 
 @app.route('/verify-otp', methods=['POST'])
 def verify_otp():
-    # ... (بدون تغییر) ...
     data = request.get_json()
     national_id, otp_code = data.get('national_id'), data.get('otp_code')
     if not all([national_id, otp_code]): return jsonify({"error": "اطلاعات ناقص است."}), 400
@@ -128,7 +125,6 @@ def verify_otp():
         return jsonify({"message": "ورود با موفقیت انجام شد!"})
     else:
         return jsonify({"error": "کد وارد شده صحیح نیست."}), 400
-
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
