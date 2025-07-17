@@ -48,52 +48,41 @@
     </div>
     
     <dialog id="message_modal" class="modal">
-        <div class="modal-box text-center">
-            <h3 id="modal_title" class="font-bold text-lg"></h3>
-            <p id="modal_message" class="py-4"></p>
-            <div class="modal-action justify-center">
-                <form method="dialog"><button id="modal_button" class="btn">بستن</button></form>
-            </div>
-        </div>
-    </dialog>
+        </dialog>
 
 <script>
     const API_BACKEND_URL = "https://tavonibot.onrender.com";
     let currentNationalId = '';
 
-    // تابع نمایش پاپ‌آپ
-    function showModal(title, message, isSuccess) {
-        // ... (این تابع مانند فایل index.html است)
-    }
+    // تابع نمایش پاپ‌آپ (بدون تغییر)
+    function showModal(title, message, isSuccess) { /* ... */ }
 
-    // این تابع هنگام بارگذاری صفحه اجرا می‌شود
     window.onload = function() {
         const urlParams = new URLSearchParams(window.location.search);
         currentNationalId = urlParams.get('nid');
-
         if (!currentNationalId) {
-            document.getElementById('loading_message').textContent = 'خطا: مشخصات کاربر یافت نشد. لطفاً دوباره وارد شوید.';
+            document.getElementById('loading_message').textContent = 'خطا: مشخصات کاربر یافت نشد.';
             return;
         }
-        
         fetchUserProfile();
     };
 
-    // گرفتن اطلاعات کاربر از سرور
     async function fetchUserProfile() {
         try {
             const response = await fetch(`${API_BACKEND_URL}/get-user-profile?nid=${currentNationalId}`);
             const data = await response.json();
 
             if (response.ok) {
-                // پر کردن فرم با اطلاعات دریافتی
-                document.getElementById('fullName').value = data.full_name;
+                // --- این بخش اصلاح شد ---
+                // ما first_name و last_name را با هم ترکیب کرده و در فیلد fullName نمایش می‌دهیم
+                document.getElementById('fullName').value = `${data.first_name || ''} ${data.last_name || ''}`;
+                // --- پایان بخش اصلاح شده ---
+
                 document.getElementById('nationalId').value = data.national_id;
                 document.getElementById('phone').value = data.phone_number;
                 document.getElementById('postalCode').value = data.postal_code || '';
                 document.getElementById('address').value = data.address || '';
                 
-                // نمایش فرم و پنهان کردن پیام بارگذاری
                 document.getElementById('loading_message').classList.add('hidden');
                 document.getElementById('profile_form').classList.remove('hidden');
             } else {
@@ -104,9 +93,7 @@
         }
     }
 
-    // ذخیره اطلاعات جدید کاربر
     async function updateProfile() {
-        // ... (این تابع را در مراحل بعدی تکمیل می‌کنیم)
         alert('این دکمه هنوز کار نمی‌کند!');
     }
 </script>
