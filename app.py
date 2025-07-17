@@ -60,17 +60,18 @@ def get_user_profile():
         print(error_message)
         return jsonify({"error": error_message}), 500
 
-# --- مسیر تولید توکن (با دستور print برای دیباگ) ---
+# --- مسیر تولید توکن (با دستور print جدید برای دیباگ) ---
 @app.route('/generate-linking-token', methods=['POST'])
 def generate_linking_token():
     data = request.get_json()
-    national_id = data.get('national_id')
-    phone_number = data.get('phone_number')
-
+    
     # --- خط جدید برای دیباگ ---
-    # ما کد ملی دریافتی را در لاگ‌ها چاپ می‌کنیم تا آن را ببینیم
-    print(f"Received national_id from browser: '{national_id}'")
+    # ما کل داده‌های دریافتی از مرورگر را چاپ می‌کنیم
+    print(f"Received data from browser: {data}")
     # --- پایان خط دیباگ ---
+
+    national_id = data.get('national_id') if data else None
+    phone_number = data.get('phone_number') if data else None
 
     if not all([national_id, phone_number]):
         return jsonify({"error": "کد ملی و شماره موبایل الزامی است."}), 400
@@ -91,7 +92,6 @@ def generate_linking_token():
     token = secrets.token_urlsafe(16)
     linking_tokens[token] = national_id
     return jsonify({"linking_token": token})
-
 
 # --- بقیه مسیرهای API (بدون تغییر) ---
 @app.route('/webhook', methods=['POST'])
