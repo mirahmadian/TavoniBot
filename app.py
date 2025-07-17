@@ -38,14 +38,18 @@ def serve_index():
 def serve_profile():
     return send_from_directory(app.static_folder, 'profile.html')
 
-# --- مسیر خواندن پروفایل (با مدیریت خطای جدید برای دیباگ) ---
+# --- مسیر خواندن پروفایل (بدون درخواست ایمیل) ---
 @app.route('/get-user-profile')
 def get_user_profile():
     national_id = request.args.get('nid')
     if not national_id:
         return jsonify({"error": "کد ملی ارسال نشده است."}), 400
     try:
-        response = supabase.table('member').select("first_name, last_name, nationalcode, phonenumber, email, address, postal_code").eq('nationalcode', national_id).single().execute()
+        # --- این خط اصلاح شد ---
+        # کلمه 'email' از لیست ستون‌های درخواستی حذف شد
+        response = supabase.table('member').select("first_name, last_name, nationalcode, phonenumber, address, postal_code").eq('nationalcode', national_id).single().execute()
+        # --- پایان بخش اصلاح شده ---
+        
         if response.data:
             user_data = response.data
             if 'nationalcode' in user_data:
@@ -57,12 +61,9 @@ def get_user_profile():
             return jsonify({"error": "کاربری با این کد ملی یافت نشد."}), 404
             
     except Exception as e:
-        # --- بخش تغییر یافته برای دیباگ ---
-        # ما متن اصلی خطا را به فرانت‌اند می‌فرستیم
         error_message = f"Database Error: {str(e)}"
-        print(error_message) # این خط را نگه می‌داریم تا در لاگ هم چاپ شود
+        print(error_message)
         return jsonify({"error": error_message}), 500
-        # --- پایان بخش تغییر یافته ---
 
 # --- بقیه مسیرهای API (بدون تغییر) ---
 @app.route('/generate-linking-token', methods=['POST'])
