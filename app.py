@@ -48,33 +48,29 @@ def get_user_profile():
         response = supabase.table('member').select("first_name, last_name, nationalcode, phonenumber, address, postal_code").eq('nationalcode', national_id).single().execute()
         if response.data:
             user_data = response.data
-            if 'nationalcode' in user_data:
-                user_data['national_id'] = user_data.pop('nationalcode')
-            if 'phonenumber' in user_data:
-                 user_data['phone_number'] = user_data.pop('phonenumber')
+            if 'nationalcode' in user_data: user_data['national_id'] = user_data.pop('nationalcode')
+            if 'phonenumber' in user_data: user_data['phone_number'] = user_data.pop('phonenumber')
             return jsonify(user_data)
         else:
             return jsonify({"error": "کاربری با این کد ملی یافت نشد."}), 404
     except Exception as e:
-        error_message = f"Database Error: {str(e)}"
-        print(error_message)
-        return jsonify({"error": error_message}), 500
+        return jsonify({"error": f"Database Error: {str(e)}"}), 500
 
-# --- مسیر تولید توکن (با دستور print جدید برای دیباگ) ---
+# --- مسیر تولید توکن (اصلاح نهایی) ---
 @app.route('/generate-linking-token', methods=['POST'])
 def generate_linking_token():
-    data = request.get_json()
+    # از silent=True استفاده می‌کنیم تا در صورت نبود JSON، خطا ندهد و None برگرداند
+    data = request.get_json(silent=True)
     
-    # --- خط جدید برای دیباگ ---
-    # ما کل داده‌های دریافتی از مرورگر را چاپ می‌کنیم
-    print(f"Received data from browser: {data}")
-    # --- پایان خط دیباگ ---
+    # اگر بدنه درخواست خالی یا فرمت آن اشتباه باشد
+    if data is None:
+        return jsonify({"error": "فرمت درخواست ارسالی صحیح نیست."}), 400
 
-    national_id = data.get('national_id') if data else None
-    phone_number = data.get('phone_number') if data else None
+    national_id = data.get('national_id')
+    phone_number = data.get('phone_number')
 
     if not all([national_id, phone_number]):
-        return jsonify({"error": "کد ملی و شماره موبایل الزامی است."}), 400
+        return jsonify({"error": "کد ملی و شماره موبایل در درخواست یافت نشد."}), 400
     
     try:
         response = supabase.table('member').select("nationalcode").eq('nationalcode', national_id).execute()
