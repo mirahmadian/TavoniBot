@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>داشبورد - سامانه تعاونی</title>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.20/dist/full.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/@fontsource/vazirmatn@latest/index.css" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: Vazirmatn, sans-serif; background-color: #f0f2f5; }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-4xl mx-auto">
+        <div class="flex justify-between items-center mb-8">
+            <h1 id="welcome_message" class="text-2xl font-bold text-gray-800">خوش آمدید، ...</h1>
+            <a href="/index.html" class="btn btn-sm btn-outline btn-error">خروج</a>
+        </div>
+
+        <div class="bg-white p-6 rounded-2xl shadow-md mb-8">
+            <h2 class="text-xl font-semibold mb-4 border-b pb-2">وضعیت سهام شما</h2>
+            <div id="share_status_loading">در حال بارگذاری اطلاعات...</div>
+            <div id="share_status_content" class="hidden">
+                <p class="text-lg">میزان سهم فعلی شما: <span id="share_percentage" class="font-bold text-primary">--</span> درصد</p>
+                <p class="text-sm text-gray-500 mt-2">این مقدار نشان‌دهنده مالکیت فعلی شماست.</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="card bg-base-100 shadow-md">
+                <div class="card-body items-center text-center">
+                    <h2 class="card-title">فروش سهام</h2>
+                    <p>می‌توانید تمام یا بخشی از سهم خود را برای فروش عرضه کنید.</p>
+                    <div class="card-actions justify-end">
+                        <a href="sell_share.html" class="btn btn-success">قصد فروش سهام دارم</a>
+                    </div>
+                </div>
+            </div>
+            <div class="card bg-base-100 shadow-md">
+                <div class="card-body items-center text-center">
+                    <h2 class="card-title">خرید سهام</h2>
+                    <p>پیشنهادهای فروش ثبت‌شده توسط سایر اعضا را مشاهده کنید.</p>
+                    <div class="card-actions justify-end">
+                        <a href="view_offers.html" class="btn btn-info">مشاهده پیشنهادهای فروش</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const API_BACKEND_URL = "https://tavonibot.onrender.com";
+    let currentNationalId = '';
+
+    window.onload = function() {
+        // ما کد ملی کاربر را از آدرس صفحه می‌خوانیم (این روش امن نیست و بعدا باید با توکن جایگزین شود)
+        const urlParams = new URLSearchParams(window.location.search);
+        currentNationalId = urlParams.get('nid');
+
+        if (!currentNationalId) {
+            document.getElementById('welcome_message').textContent = 'خطا: کاربر شناسایی نشد.';
+            return;
+        }
+        
+        fetchMemberData();
+    };
+
+    async function fetchMemberData() {
+        const loadingEl = document.getElementById('share_status_loading');
+        const contentEl = document.getElementById('share_status_content');
+        
+        try {
+            // از یک API جدید برای گرفتن اطلاعات سهام استفاده می‌کنیم
+            const response = await fetch(`${API_BACKEND_URL}/get-member-data?nid=${currentNationalId}`);
+            const data = await response.json();
+
+            if (response.ok) {
+                document.getElementById('welcome_message').textContent = `خوش آمدید، ${data.first_name} ${data.last_name}`;
+                document.getElementById('share_percentage').textContent = data.share_percentage;
+                loadingEl.classList.add('hidden');
+                contentEl.classList.remove('hidden');
+            } else {
+                loadingEl.textContent = data.error;
+            }
+        } catch (error) {
+            loadingEl.textContent = 'خطا در ارتباط با سرور.';
+        }
+    }
+</script>
+</body>
+</html>
