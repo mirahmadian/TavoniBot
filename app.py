@@ -42,14 +42,10 @@ linking_tokens = {}
 # --- مسیرهای اصلی ---
 @app.route('/')
 def serve_index(): return send_from_directory(app.static_folder, 'index.html')
-
 @app.route('/profile.html')
 def serve_profile(): return send_from_directory(app.static_folder, 'profile.html')
-
 @app.route('/dashboard.html')
-def serve_dashboard():
-    return send_from_directory(app.static_folder, 'dashboard.html')
-
+def serve_dashboard(): return send_from_directory(app.static_folder, 'dashboard.html')
 
 # --- API Endpoints ---
 @app.route('/get-user-profile')
@@ -72,9 +68,13 @@ def get_member_data():
     if not national_id:
         return jsonify({"error": "کد ملی ارسال نشده است."}), 400
     try:
-        response = supabase.table('member').select("first_name, last_name, share_percentage").eq('nationalcode', national_id).single().execute()
+        # --- بخش اصلاح شده ---
+        # دستور .single() که باعث کرش میشد، از اینجا هم حذف شد
+        response = supabase.table('member').select("first_name, last_name, share_percentage").eq('nationalcode', national_id).execute()
+        # --- پایان بخش اصلاح شده ---
+        
         if response.data:
-            return jsonify(response.data)
+            return jsonify(response.data[0])
         else:
             return jsonify({"error": "کاربری با این کد ملی یافت نشد."}), 404
     except Exception as e:
@@ -146,36 +146,4 @@ def webhook():
         try:
             res = supabase.table('member').select("nationalcode").eq('phonenumber', normalized_phone).execute()
             if res.data:
-                requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": chat_id, "text": "این شماره موبایل قبلاً برای عضو دیگری ثبت شده است."})
-                return "ok", 200
-            
-            supabase.table('member').update({"phonenumber": normalized_phone, "chat_id": str(chat_id)}).eq('nationalcode', national_id).execute()
-            del otp_storage[str(chat_id)]
-            
-            otp_code = random.randint(10000, 99999)
-            otp_storage[national_id] = {"code": str(otp_code), "timestamp": time.time()}
-            otp_message = (f"ثبت‌نام شما با موفقیت انجام شد.\n\nکد ورود شما به سامانه تعاونی:\n`{otp_code}`\n\n_(برای کپی کردن، کد بالا را لمس کنید)_\n\nاین کد تا ۲ دقیقه دیگر معتبر است.\n*لطفاً این کد را در اختیار دیگران قرار ندهید.*")
-            payload = {"chat_id": chat_id, "text": otp_message, "parse_mode": "Markdown", "reply_markup": {"remove_keyboard": True}}
-            requests.post(f"{BALE_API_URL}/sendMessage", json=payload)
-        except Exception as e:
-            print(f"Webhook Contact Error: {e}")
-            requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": chat_id, "text": "خطایی در فرآیند ثبت‌نام رخ داد."})
-    elif "text" in message and message.get("text").startswith('/start '):
-        token = message.get("text").split(' ', 1)[1]
-        if token in linking_tokens:
-            national_id = linking_tokens.pop(token)
-            otp_storage[str(chat_id)] = {"national_id": national_id}
-            payload = {
-                "chat_id": chat_id, "text": "برای تکمیل ثبت‌نام اولیه، لطفاً روی دکمه زیر کلیک کرده و شماره موبایل خود را با ما به اشتراک بگذارید.",
-                "reply_markup": {"keyboard": [[{"text": "🔒 اشتراک‌گذاری شماره موبایل", "request_contact": True}]], "resize_keyboard": True, "one_time_keyboard": True}
-            }
-            requests.post(f"{BALE_API_URL}/sendMessage", json=payload)
-    return "ok", 200
-
-@app.route('/verify-otp', methods=['POST'])
-def verify_otp():
-    data = request.get_json()
-    national_id, otp_code = data.get('national_id'), data.get('otp_code')
-    if not all([national_id, otp_code]): return jsonify({"error": "اطلاعات ناقص است."}), 400
-    if national_id not in otp_storage: return jsonify({"error": "فرآیند ورود یافت نشد."}), 404
-    stored_otp = otp_storage
+                requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": chat_id, "text": "این شماره موبایل قبلاً برای
