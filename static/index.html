@@ -39,6 +39,7 @@
         const API_BACKEND_URL = "https://tavonibot.onrender.com";
         const BALE_BOT_USERNAME = "TavoniBot";
         let currentNationalId = "";
+        let otpTimer; // متغیر برای نگهداری تایمر
 
         function showModal(title, message, isSuccess) {
             const modal = document.getElementById('message_modal');
@@ -90,12 +91,19 @@
             const step2Div = document.getElementById('step-2');
             let content = '';
 
+            const otpSectionHTML = `
+                <label class="block mb-2 font-semibold text-gray-800">کد تایید دریافت شده را وارد کنید:</label>
+                <input type="text" id="otpInput" class="input input-bordered w-full mb-2 text-center font-bold text-lg tracking-[.25em]" maxlength="5" placeholder="- - - - -">
+                <div class="text-center text-sm text-gray-500 mb-4">
+                    <span id="timer_message">زمان باقی‌مانده:</span> <span id="timer" class="font-bold">02:00</span>
+                </div>
+                <button id="verifyBtn" onclick="verifyOtp()" class="btn btn-primary w-full">تایید و ورود</button>
+            `;
+
             if (data.action === 'verify_otp') {
                 content = `
                     <p class="text-center mb-4 text-gray-800">شما قبلاً ثبت‌نام کرده‌اید. کد تایید به حساب بله شما ارسال شد.</p>
-                    <label class="block mb-2 font-semibold text-gray-800">کد تایید را وارد کنید:</label>
-                    <input type="text" id="otpInput" class="input input-bordered w-full mb-4 text-center font-bold text-lg tracking-[.25em]" maxlength="5" placeholder="- - - - -">
-                    <button id="verifyBtn" onclick="verifyOtp()" class="btn btn-primary w-full">تایید و ورود</button>
+                    ${otpSectionHTML}
                 `;
             } else if (data.action === 'register') {
                 const linkingToken = data.linking_token;
@@ -105,15 +113,41 @@
                         <p>برای ثبت‌نام اولیه، <a href="${baleLink}" target="_blank" class="link link-primary font-bold">اینجا</a> را کلیک کرده و شماره موبایل خود را در بله به اشتراک بگذارید.</p>
                         <p class="text-sm mt-1">پس از آن، کد تایید برای شما ارسال می‌شود.</p>
                     </div>
-                    <label class="block mb-2 font-semibold text-gray-800">کد تایید دریافت شده را وارد کنید:</label>
-                    <input type="text" id="otpInput" class="input input-bordered w-full mb-4 text-center font-bold text-lg tracking-[.25em]" maxlength="5" placeholder="- - - - -">
-                    <button id="verifyBtn" onclick="verifyOtp()" class="btn btn-primary w-full">تایید و ورود</button>
+                    ${otpSectionHTML}
                 `;
             }
 
             step2Div.innerHTML = content;
             document.getElementById('step-1').classList.add('hidden');
             step2Div.classList.remove('hidden');
+            startOtpTimer();
+        }
+
+        function startOtpTimer() {
+            let duration = 120;
+            const timerDisplay = document.getElementById('timer');
+            const timerMessage = document.getElementById('timer_message');
+            const verifyBtn = document.getElementById('verifyBtn');
+            const otpInput = document.getElementById('otpInput');
+
+            if (otpTimer) clearInterval(otpTimer);
+
+            otpTimer = setInterval(() => {
+                const minutes = Math.floor(duration / 60);
+                let seconds = duration % 60;
+                seconds = seconds < 10 ? "0" + seconds : seconds;
+                
+                timerDisplay.textContent = `${minutes}:${seconds}`;
+                duration--;
+
+                if (duration < 0) {
+                    clearInterval(otpTimer);
+                    timerMessage.textContent = "کد منقضی شد! لطفاً صفحه را رفرش کرده و دوباره تلاش کنید.";
+                    timerDisplay.textContent = "";
+                    verifyBtn.disabled = true;
+                    otpInput.disabled = true;
+                }
+            }, 1000);
         }
         
         async function verifyOtp() {
@@ -132,6 +166,7 @@
                 });
                 const result = await response.json();
                 if (response.ok) {
+                    clearInterval(otpTimer); // متوقف کردن تایمر در صورت موفقیت
                     showModal('ورود موفقیت‌آمیز', 'شما با موفقیت وارد شدید. برای ورود به پنل کاربری، این پنجره را ببندید.', true);
                     const modal = document.getElementById('message_modal');
                     modal.addEventListener('close', () => {
