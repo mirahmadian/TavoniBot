@@ -12,7 +12,7 @@ import sys
 
 load_dotenv()
 
-# --- بررسی امنیتی اولیه ---
+# --- بررسی امنیتی اولیه برای متغیرهای محیطی ---
 required_vars = ["BOT_TOKEN", "SUPABASE_URL", "SUPABASE_KEY"]
 missing_vars = [var for var in required_vars if os.environ.get(var) is None]
 if missing_vars:
@@ -42,6 +42,7 @@ linking_tokens = {}
 # --- مسیرهای اصلی ---
 @app.route('/')
 def serve_index(): return send_from_directory(app.static_folder, 'index.html')
+
 @app.route('/profile.html')
 def serve_profile(): return send_from_directory(app.static_folder, 'profile.html')
 
@@ -86,6 +87,29 @@ def start_login():
         print(f"Login Start Error: {e}")
         return jsonify({"error": "خطا در بررسی اطلاعات کاربر."}), 500
 
+@app.route('/update-user-profile', methods=['POST'])
+def update_user_profile():
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "درخواست نامعتبر است."}), 400
+
+    national_id = data.get('national_id')
+    postal_code = data.get('postal_code')
+    address = data.get('address')
+
+    if not national_id:
+        return jsonify({"error": "کد ملی برای به‌روزرسانی پروفایل الزامی است."}), 400
+
+    try:
+        supabase.table('member').update({
+            "postal_code": postal_code,
+            "address": address
+        }).eq('nationalcode', national_id).execute()
+        return jsonify({"message": "اطلاعات شما با موفقیت ذخیره شد."})
+    except Exception as e:
+        print(f"Profile Update Error: {e}")
+        return jsonify({"error": "خطا در ذخیره‌سازی اطلاعات."}), 500
+
 @app.route('/webhook', methods=['POST'])
 def webhook():
     data = request.get_json()
@@ -106,27 +130,15 @@ def webhook():
             if res.data:
                 requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": chat_id, "text": "این شماره موبایل قبلاً برای عضو دیگری ثبت شده است."})
                 return "ok", 200
-            
             supabase.table('member').update({"phonenumber": phone_from_bale, "chat_id": str(chat_id)}).eq('nationalcode', national_id).execute()
             del otp_storage[str(chat_id)]
-            
             otp_code = random.randint(10000, 99999)
             otp_storage[national_id] = {"code": str(otp_code), "timestamp": time.time()}
-            
-            # --- بخش اصلاح شده ---
-            # ابتدا پیام کد تایید را با دستور حذف کیبورد ارسال می‌کنیم
-            payload = {
-                "chat_id": chat_id,
-                "text": f"ثبت‌نام شما با موفقیت انجام شد.\nکد تایید شما: {otp_code}",
-                "reply_markup": {"remove_keyboard": True}
-            }
+            payload = {"chat_id": chat_id, "text": f"ثبت‌نام شما با موفقیت انجام شد.\nکد تایید شما: {otp_code}", "reply_markup": {"remove_keyboard": True}}
             requests.post(f"{BALE_API_URL}/sendMessage", json=payload)
-            # --- پایان بخش اصلاح شده ---
-
         except Exception as e:
             print(f"Webhook Contact Error: {e}")
             requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": chat_id, "text": "خطایی در فرآیند ثبت‌نام رخ داد."})
-
     elif "text" in message and message.get("text").startswith('/start '):
         token = message.get("text").split(' ', 1)[1]
         if token in linking_tokens:

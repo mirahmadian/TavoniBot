@@ -31,9 +31,7 @@
                     <input type="text" id="phone" class="input input-bordered w-full bg-gray-100" disabled>
                 </div>
             </div>
-
             <hr class="my-6">
-
             <div class="mb-4">
                 <label class="block mb-2 font-semibold">کد پستی:</label>
                 <input type="text" id="postalCode" class="input input-bordered w-full" placeholder="کد پستی ۱۰ رقمی خود را وارد کنید">
@@ -42,20 +40,34 @@
                 <label class="block mb-2 font-semibold">آدرس:</label>
                 <textarea id="address" class="textarea textarea-bordered w-full" rows="3" placeholder="آدرس دقیق محل سکونت"></textarea>
             </div>
-
             <button id="saveBtn" onclick="updateProfile()" class="btn btn-primary w-full mt-4">ذخیره اطلاعات</button>
         </div>
     </div>
     
     <dialog id="message_modal" class="modal">
-        </dialog>
+        <div class="modal-box text-center">
+            <h3 id="modal_title" class="font-bold text-lg"></h3>
+            <p id="modal_message" class="py-4"></p>
+            <div class="modal-action justify-center">
+                <form method="dialog"><button id="modal_button" class="btn">بستن</button></form>
+            </div>
+        </div>
+    </dialog>
 
 <script>
     const API_BACKEND_URL = "https://tavonibot.onrender.com";
     let currentNationalId = '';
 
-    // تابع نمایش پاپ‌آپ (بدون تغییر)
-    function showModal(title, message, isSuccess) { /* ... */ }
+    function showModal(title, message, isSuccess) {
+        const modal = document.getElementById('message_modal');
+        document.getElementById('modal_title').textContent = title;
+        document.getElementById('modal_message').textContent = message;
+        const modalButton = document.getElementById('modal_button');
+        modalButton.className = 'btn';
+        if (isSuccess) { modalButton.classList.add('btn-success'); } 
+        else { modalButton.classList.add('btn-error'); }
+        modal.showModal();
+    }
 
     window.onload = function() {
         const urlParams = new URLSearchParams(window.location.search);
@@ -71,18 +83,12 @@
         try {
             const response = await fetch(`${API_BACKEND_URL}/get-user-profile?nid=${currentNationalId}`);
             const data = await response.json();
-
             if (response.ok) {
-                // --- این بخش اصلاح شد ---
-                // ما first_name و last_name را با هم ترکیب کرده و در فیلد fullName نمایش می‌دهیم
                 document.getElementById('fullName').value = `${data.first_name || ''} ${data.last_name || ''}`;
-                // --- پایان بخش اصلاح شده ---
-
                 document.getElementById('nationalId').value = data.national_id;
                 document.getElementById('phone').value = data.phone_number;
                 document.getElementById('postalCode').value = data.postal_code || '';
                 document.getElementById('address').value = data.address || '';
-                
                 document.getElementById('loading_message').classList.add('hidden');
                 document.getElementById('profile_form').classList.remove('hidden');
             } else {
@@ -94,7 +100,33 @@
     }
 
     async function updateProfile() {
-        alert('این دکمه هنوز کار نمی‌کند!');
+        const postalCode = document.getElementById('postalCode').value.trim();
+        const address = document.getElementById('address').value.trim();
+        const saveBtn = document.getElementById('saveBtn');
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'در حال ذخیره‌سازی...';
+        try {
+            const response = await fetch(`${API_BACKEND_URL}/update-user-profile`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    national_id: currentNationalId,
+                    postal_code: postalCode,
+                    address: address
+                })
+            });
+            const result = await response.json();
+            if (response.ok) {
+                showModal('موفقیت', result.message, true);
+            } else {
+                showModal('خطا', result.error, false);
+            }
+        } catch (error) {
+            showModal('خطا', 'خطا در برقراری ارتباط با سرور.', false);
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'ذخیره اطلاعات';
+        }
     }
 </script>
 </body>
