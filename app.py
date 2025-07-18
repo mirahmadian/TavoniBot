@@ -49,22 +49,16 @@ def serve_profile(): return send_from_directory(app.static_folder, 'profile.html
 @app.route('/get-user-profile')
 def get_user_profile():
     national_id = request.args.get('nid')
-    if not national_id:
-        return jsonify({"error": "کد ملی ارسال نشده است."}), 400
+    if not national_id: return jsonify({"error": "کد ملی ارسال نشده است."}), 400
     try:
-        # --- بخش اصلاح شده ---
-        # دستور .single() حذف شد تا با بقیه کد هماهنگ باشد
         response = supabase.table('member').select("first_name, last_name, nationalcode, phonenumber, address, postal_code").eq('nationalcode', national_id).execute()
-        
         if response.data:
-            user_data = response.data[0] # اولین نتیجه را انتخاب می‌کنیم
+            user_data = response.data[0]
             if 'nationalcode' in user_data: user_data['national_id'] = user_data.pop('nationalcode')
             if 'phonenumber' in user_data: user_data['phone_number'] = user_data.pop('phonenumber')
             return jsonify(user_data)
-        else:
-            return jsonify({"error": "کاربری با این کد ملی یافت نشد."}), 404
-    except Exception as e:
-        return jsonify({"error": f"Database Error: {str(e)}"}), 500
+        else: return jsonify({"error": "کاربری با این کد ملی یافت نشد."}), 404
+    except Exception as e: return jsonify({"error": f"Database Error: {str(e)}"}), 500
 
 @app.route('/start-login', methods=['POST'])
 def start_login():
@@ -75,7 +69,10 @@ def start_login():
     national_id = data.get('national_id')
 
     try:
+        # --- بخش اصلاح شده نهایی ---
+        # ما phonenumber و chat_id هر دو را درخواست می‌کنیم
         response = supabase.table('member').select("phonenumber, chat_id").eq('nationalcode', national_id).execute()
+        # --- پایان بخش اصلاح شده ---
 
         if not response.data:
             return jsonify({"error": "کد ملی وارد شده در سامانه ثبت نشده است."}), 404
@@ -114,8 +111,11 @@ def webhook():
             if res.data:
                 requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": chat_id, "text": "این شماره موبایل قبلاً برای عضو دیگری ثبت شده است."})
                 return "ok", 200
-            supabase.table('member').update({"phonenumber": phone_from_bale, "chat_id": chat_id}).eq('nationalcode', national_id).execute()
+            
+            # chat_id را به صورت رشته ذخیره می‌کنیم
+            supabase.table('member').update({"phonenumber": phone_from_bale, "chat_id": str(chat_id)}).eq('nationalcode', national_id).execute()
             del otp_storage[str(chat_id)]
+            
             otp_code = random.randint(10000, 99999)
             otp_storage[national_id] = {"code": str(otp_code), "timestamp": time.time()}
             requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": chat_id, "text": f"ثبت‌نام شما با موفقیت انجام شد.\nکد تایید شما: {otp_code}"})
