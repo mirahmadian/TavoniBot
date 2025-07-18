@@ -12,7 +12,7 @@ import sys
 
 load_dotenv()
 
-# --- بررسی امنیتی اولیه ---
+# --- بررسی امنیتی اولیه برای متغیرهای محیطی ---
 required_vars = ["BOT_TOKEN", "SUPABASE_URL", "SUPABASE_KEY"]
 missing_vars = [var for var in required_vars if os.environ.get(var) is None]
 if missing_vars:
@@ -42,6 +42,7 @@ linking_tokens = {}
 # --- مسیرهای اصلی ---
 @app.route('/')
 def serve_index(): return send_from_directory(app.static_folder, 'index.html')
+
 @app.route('/profile.html')
 def serve_profile(): return send_from_directory(app.static_folder, 'profile.html')
 
@@ -76,14 +77,7 @@ def start_login():
         if user.get('phonenumber') and user.get('chat_id'):
             otp_code = random.randint(10000, 99999)
             otp_storage[national_id] = {"code": str(otp_code), "timestamp": time.time()}
-            
-            # --- متن پیام اصلاح شده (با فرمت Markdown) ---
-            otp_message = (
-                f"کد ورود شما به سامانه تعاونی مصرف کارکنان حج و زیارت:\n"
-                f"`{otp_code}`\n\n"
-                f"_(این کد تا ۲ دقیقه دیگر معتبر است)_\n\n"
-                f"*لطفاً این کد را در اختیار دیگران قرار ندهید.*"
-            )
+            otp_message = (f"کد ورود شما به سامانه تعاونی مصرف کارکنان حج و زیارت:\n`{otp_code}`\n\n_(این کد تا ۲ دقیقه دیگر معتبر است)_\n\n*لطفاً این کد را در اختیار دیگران قرار ندهید.*")
             requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": user['chat_id'], "text": otp_message, "parse_mode": "Markdown"})
             return jsonify({"action": "verify_otp"})
         else:
@@ -104,31 +98,32 @@ def webhook():
     
     if "contact" in message:
         phone_from_bale = message['contact']['phone_number']
+        
+        # نرمال‌سازی شماره تلفن
+        if phone_from_bale.startswith('98'):
+            normalized_phone = '+' + phone_from_bale
+        elif phone_from_bale.startswith('0'):
+            normalized_phone = '+98' + phone_from_bale[1:]
+        else:
+            normalized_phone = phone_from_bale
+
         session_data = otp_storage.get(str(chat_id))
         if not session_data or "national_id" not in session_data:
             requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": chat_id, "text": "فرآیند ثبت‌نام شما یافت نشد."})
             return "ok", 200
         national_id = session_data["national_id"]
         try:
-            res = supabase.table('member').select("nationalcode").eq('phonenumber', phone_from_bale).execute()
+            res = supabase.table('member').select("nationalcode").eq('phonenumber', normalized_phone).execute()
             if res.data:
                 requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": chat_id, "text": "این شماره موبایل قبلاً برای عضو دیگری ثبت شده است."})
                 return "ok", 200
             
-            supabase.table('member').update({"phonenumber": phone_from_bale, "chat_id": str(chat_id)}).eq('nationalcode', national_id).execute()
+            supabase.table('member').update({"phonenumber": normalized_phone, "chat_id": str(chat_id)}).eq('nationalcode', national_id).execute()
             del otp_storage[str(chat_id)]
             
             otp_code = random.randint(10000, 99999)
             otp_storage[national_id] = {"code": str(otp_code), "timestamp": time.time()}
-            
-            # --- متن پیام اصلاح شده (با فرمت Markdown) ---
-            otp_message = (
-                f"ثبت‌نام شما با موفقیت انجام شد.\n"
-                f"کد ورود به سامانه تعاونی مصرف کارکنان حج و زیارت:\n"
-                f"`{otp_code}`\n\n"
-                f"_(این کد تا ۲ دقیقه دیگر معتبر است)_\n\n"
-                f"*لطفاً این کد را در اختیار دیگران قرار ندهید.*"
-            )
+            otp_message = (f"ثبت‌نام شما با موفقیت انجام شد.\nکد ورود به سامانه:\n`{otp_code}`\n\n_(تا ۲ دقیقه معتبر است)_")
             payload = {"chat_id": chat_id, "text": otp_message, "parse_mode": "Markdown", "reply_markup": {"remove_keyboard": True}}
             requests.post(f"{BALE_API_URL}/sendMessage", json=payload)
         except Exception as e:
