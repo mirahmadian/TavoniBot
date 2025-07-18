@@ -18,21 +18,11 @@
         <div id="step-1">
             <label class="block mb-2 font-semibold">کد ملی خود را وارد کنید:</label>
             <input type="text" id="nationalIdInput" class="input input-bordered w-full mb-4" placeholder="مثال: 0012345678" maxlength="10">
-            <label class="block mb-2 font-semibold">شماره موبایل خود را وارد کنید:</label>
-            <input type="tel" id="phoneInput" class="input input-bordered w-full mb-4" placeholder="مثال: 09123456789" maxlength="11">
-            <button id="sendCodeBtn" onclick="generateLink()" class="btn btn-success w-full">ادامه</button>
+            <button id="sendCodeBtn" onclick="startLoginProcess()" class="btn btn-success w-full">ادامه</button>
             <p id="msg" class="text-sm text-red-500 mt-2 text-center"></p>
         </div>
         
-        <div id="step-2" class="hidden">
-            <div class="text-center mb-4 leading-loose text-gray-800">
-                <p>برای دریافت کد تایید، <a id="baleLink" href="#" target="_blank" class="link link-primary font-bold">اینجا</a> را کلیک نموده و منتظر بمانید.</p>
-                <p class="text-sm mt-1">کد تایید در پیام رسان بله برای شما ارسال می شود.</p>
-            </div>
-            <label class="block mb-2 font-semibold text-gray-800">کد تایید دریافت شده را وارد کنید:</label>
-            <input type="text" id="otpInput" class="input input-bordered w-full mb-4 text-center font-bold text-lg tracking-[.25em]" maxlength="5" placeholder="- - - - -">
-            <button id="verifyBtn" onclick="verifyOtp()" class="btn btn-primary w-full">تایید و ورود</button>
-        </div>
+        <div id="step-2" class="hidden"></div>
     </div>
 
     <dialog id="message_modal" class="modal">
@@ -60,28 +50,31 @@
             modal.showModal();
         }
 
-        async function generateLink() {
+        async function startLoginProcess() {
             const nationalId = document.getElementById('nationalIdInput').value.trim();
-            const phone = document.getElementById('phoneInput').value.trim();
             const msgEl = document.getElementById('msg');
             const sendBtn = document.getElementById('sendCodeBtn');
             msgEl.textContent = '';
             currentNationalId = nationalId;
-            
+
+            if (!/^\d{10}$/.test(nationalId)) {
+                msgEl.textContent = "کد ملی باید ۱۰ رقم باشد.";
+                return;
+            }
+
             sendBtn.disabled = true;
-            sendBtn.textContent = 'لطفاً صبر کنید...';
+            sendBtn.textContent = 'در حال بررسی...';
+
             try {
-                const response = await fetch(`${API_BACKEND_URL}/generate-linking-token`, {
+                const response = await fetch(`${API_BACKEND_URL}/start-login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ national_id: nationalId, phone_number: phone })
+                    body: JSON.stringify({ national_id: nationalId })
                 });
                 const result = await response.json();
+
                 if (response.ok) {
-                    const linkingToken = result.linking_token;
-                    document.getElementById('baleLink').href = `https://ble.ir/${BALE_BOT_USERNAME}?start=${linkingToken}`;
-                    document.getElementById('step-1').classList.add('hidden');
-                    document.getElementById('step-2').classList.remove('hidden');
+                    setupStep2(result);
                 } else {
                     msgEl.textContent = result.error || 'یک خطای ناشناخته رخ داد.';
                 }
@@ -93,12 +86,41 @@
             }
         }
 
+        function setupStep2(data) {
+            const step2Div = document.getElementById('step-2');
+            let content = '';
+
+            if (data.action === 'verify_otp') {
+                content = `
+                    <p class="text-center mb-4 text-gray-800">شما قبلاً ثبت‌نام کرده‌اید. کد تایید به حساب بله شما ارسال شد.</p>
+                    <label class="block mb-2 font-semibold text-gray-800">کد تایید را وارد کنید:</label>
+                    <input type="text" id="otpInput" class="input input-bordered w-full mb-4 text-center font-bold text-lg tracking-[.25em]" maxlength="5" placeholder="- - - - -">
+                    <button id="verifyBtn" onclick="verifyOtp()" class="btn btn-primary w-full">تایید و ورود</button>
+                `;
+            } else if (data.action === 'register') {
+                const linkingToken = data.linking_token;
+                const baleLink = `https://ble.ir/${BALE_BOT_USERNAME}?start=${linkingToken}`;
+                content = `
+                    <div class="text-center mb-4 leading-loose text-gray-800">
+                        <p>برای ثبت‌نام اولیه، <a href="${baleLink}" target="_blank" class="link link-primary font-bold">اینجا</a> را کلیک کرده و شماره موبایل خود را در بله به اشتراک بگذارید.</p>
+                        <p class="text-sm mt-1">پس از آن، کد تایید برای شما ارسال می‌شود.</p>
+                    </div>
+                    <label class="block mb-2 font-semibold text-gray-800">کد تایید دریافت شده را وارد کنید:</label>
+                    <input type="text" id="otpInput" class="input input-bordered w-full mb-4 text-center font-bold text-lg tracking-[.25em]" maxlength="5" placeholder="- - - - -">
+                    <button id="verifyBtn" onclick="verifyOtp()" class="btn btn-primary w-full">تایید و ورود</button>
+                `;
+            }
+
+            step2Div.innerHTML = content;
+            document.getElementById('step-1').classList.add('hidden');
+            step2Div.classList.remove('hidden');
+        }
+        
         async function verifyOtp() {
             const otpCode = document.getElementById('otpInput').value.trim();
             const verifyBtn = document.getElementById('verifyBtn');
             if (!/^\d{5}$/.test(otpCode)) {
-                showModal('خطا', 'کد تایید باید ۵ رقم باشد.', false);
-                return;
+                showModal('خطا', 'کد تایید باید ۵ رقم باشد.', false); return;
             }
             verifyBtn.disabled = true;
             verifyBtn.textContent = 'در حال بررسی...';
