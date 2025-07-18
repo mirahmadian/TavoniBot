@@ -65,14 +65,9 @@ def get_user_profile():
 @app.route('/get-member-data')
 def get_member_data():
     national_id = request.args.get('nid')
-    if not national_id:
-        return jsonify({"error": "کد ملی ارسال نشده است."}), 400
+    if not national_id: return jsonify({"error": "کد ملی ارسال نشده است."}), 400
     try:
-        # --- بخش اصلاح شده ---
-        # دستور .single() که باعث کرش میشد، از اینجا هم حذف شد
         response = supabase.table('member').select("first_name, last_name, share_percentage").eq('nationalcode', national_id).execute()
-        # --- پایان بخش اصلاح شده ---
-        
         if response.data:
             return jsonify(response.data[0])
         else:
@@ -139,11 +134,16 @@ def webhook():
         else: normalized_phone = phone_from_bale
 
         session_data = otp_storage.get(str(chat_id))
+        # --- بخش اصلاح شده ---
+        # یک پرانتز بسته برای get در اینجا فراموش شده بود
         if not session_data or "national_id" not in session_data:
             requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": chat_id, "text": "فرآیند ثبت‌نام شما یافت نشد."})
             return "ok", 200
+        # --- پایان بخش اصلاح شده ---
+            
         national_id = session_data["national_id"]
         try:
             res = supabase.table('member').select("nationalcode").eq('phonenumber', normalized_phone).execute()
             if res.data:
-                requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": chat_id, "text": "این شماره موبایل قبلاً برای
+                # --- بخش اصلاح شده ---
+                # یک " در انتهای این
