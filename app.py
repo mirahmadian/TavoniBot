@@ -69,14 +69,9 @@ def start_login():
     national_id = data.get('national_id')
 
     try:
-        # --- بخش اصلاح شده نهایی ---
-        # ما phonenumber و chat_id هر دو را درخواست می‌کنیم
         response = supabase.table('member').select("phonenumber, chat_id").eq('nationalcode', national_id).execute()
-        # --- پایان بخش اصلاح شده ---
-
         if not response.data:
             return jsonify({"error": "کد ملی وارد شده در سامانه ثبت نشده است."}), 404
-
         user = response.data[0]
         if user.get('phonenumber') and user.get('chat_id'):
             otp_code = random.randint(10000, 99999)
@@ -112,16 +107,26 @@ def webhook():
                 requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": chat_id, "text": "این شماره موبایل قبلاً برای عضو دیگری ثبت شده است."})
                 return "ok", 200
             
-            # chat_id را به صورت رشته ذخیره می‌کنیم
             supabase.table('member').update({"phonenumber": phone_from_bale, "chat_id": str(chat_id)}).eq('nationalcode', national_id).execute()
             del otp_storage[str(chat_id)]
             
             otp_code = random.randint(10000, 99999)
             otp_storage[national_id] = {"code": str(otp_code), "timestamp": time.time()}
-            requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": chat_id, "text": f"ثبت‌نام شما با موفقیت انجام شد.\nکد تایید شما: {otp_code}"})
+            
+            # --- بخش اصلاح شده ---
+            # ابتدا پیام کد تایید را با دستور حذف کیبورد ارسال می‌کنیم
+            payload = {
+                "chat_id": chat_id,
+                "text": f"ثبت‌نام شما با موفقیت انجام شد.\nکد تایید شما: {otp_code}",
+                "reply_markup": {"remove_keyboard": True}
+            }
+            requests.post(f"{BALE_API_URL}/sendMessage", json=payload)
+            # --- پایان بخش اصلاح شده ---
+
         except Exception as e:
             print(f"Webhook Contact Error: {e}")
             requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": chat_id, "text": "خطایی در فرآیند ثبت‌نام رخ داد."})
+
     elif "text" in message and message.get("text").startswith('/start '):
         token = message.get("text").split(' ', 1)[1]
         if token in linking_tokens:
