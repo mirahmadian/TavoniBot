@@ -77,7 +77,6 @@ def start_login():
             otp_code = random.randint(10000, 99999)
             otp_storage[national_id] = {"code": str(otp_code), "timestamp": time.time()}
             
-            # --- متن پیام اصلاح شده (با پیشوند) ---
             otp_message = (
                 f"کد ورود شما به سامانه تعاونی مصرف کارکنان حج و زیارت:\n"
                 f"`کد: {otp_code}`\n\n"
@@ -126,7 +125,6 @@ def webhook():
             otp_code = random.randint(10000, 99999)
             otp_storage[national_id] = {"code": str(otp_code), "timestamp": time.time()}
             
-            # --- متن پیام اصلاح شده (با پیشوند) ---
             otp_message = (
                 f"ثبت‌نام شما با موفقیت انجام شد.\n"
                 f"کد ورود به سامانه:\n"
@@ -151,8 +149,11 @@ def webhook():
             requests.post(f"{BALE_API_URL}/sendMessage", json=payload)
     return "ok", 200
 
+# --- بخش اصلاح شده ---
+# نام تابع از update-user-profile به update_user_profile تغییر کرد
 @app.route('/update-user-profile', methods=['POST'])
-def update_user-profile():
+def update_user_profile():
+# --- پایان بخش اصلاح شده ---
     data = request.get_json(silent=True)
     if not data: return jsonify({"error": "درخواست نامعتبر است."}), 400
     national_id = data.get('national_id')
