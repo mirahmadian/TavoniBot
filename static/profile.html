@@ -40,7 +40,7 @@
                 <label class="block mb-2 font-semibold">آدرس:</label>
                 <textarea id="address" class="textarea textarea-bordered w-full" rows="3" placeholder="آدرس دقیق محل سکونت"></textarea>
             </div>
-            <button id="saveBtn" onclick="updateProfile()" class="btn btn-primary w-full mt-4">ذخیره اطلاعات</button>
+            <button id="saveBtn" onclick="updateProfile()" class="btn btn-primary w-full mt-4">ذخیره اطلاعات و ورود به داشبورد</button>
         </div>
     </div>
     
@@ -117,7 +117,15 @@
             });
             const result = await response.json();
             if (response.ok) {
+                // --- بخش اصلاح شده ---
+                // نمایش پیام موفقیت
                 showModal('موفقیت', result.message, true);
+                // منتظر ماندن برای بستن پاپ‌آپ و سپس هدایت به داشبورد
+                const modal = document.getElementById('message_modal');
+                modal.addEventListener('close', () => {
+                    window.location.href = `dashboard.html?nid=${currentNationalId}`;
+                }, { once: true });
+                // --- پایان بخش اصلاح شده ---
             } else {
                 showModal('خطا', result.error, false);
             }
@@ -125,7 +133,7 @@
             showModal('خطا', 'خطا در برقراری ارتباط با سرور.', false);
         } finally {
             saveBtn.disabled = false;
-            saveBtn.textContent = 'ذخیره اطلاعات';
+            saveBtn.textContent = 'ذخیره اطلاعات و ورود به داشبورد';
         }
     }
 </script>
