@@ -12,7 +12,7 @@ import sys
 
 load_dotenv()
 
-# --- بررسی امنیتی اولیه برای متغیرهای محیطی ---
+# --- بررسی امنیتی اولیه ---
 required_vars = ["BOT_TOKEN", "SUPABASE_URL", "SUPABASE_KEY"]
 missing_vars = [var for var in required_vars if os.environ.get(var) is None]
 if missing_vars:
@@ -42,7 +42,6 @@ linking_tokens = {}
 # --- مسیرهای اصلی ---
 @app.route('/')
 def serve_index(): return send_from_directory(app.static_folder, 'index.html')
-
 @app.route('/profile.html')
 def serve_profile(): return send_from_directory(app.static_folder, 'profile.html')
 
@@ -77,7 +76,15 @@ def start_login():
         if user.get('phonenumber') and user.get('chat_id'):
             otp_code = random.randint(10000, 99999)
             otp_storage[national_id] = {"code": str(otp_code), "timestamp": time.time()}
-            requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": user['chat_id'], "text": f"کد تایید شما: {otp_code}"})
+            
+            # --- متن پیام اصلاح شده (برای کاربر بازگشته) ---
+            otp_message = (
+                f"کد ورود شما به سامانه تعاونی مصرف کارکنان حج و زیارت:\n\n"
+                f"*{otp_code}*\n\n"
+                f"_(این کد تا ۲ دقیقه دیگر معتبر است)_\n\n"
+                f"لطفاً این کد را در اختیار دیگران قرار ندهید."
+            )
+            requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": user['chat_id'], "text": otp_message, "parse_mode": "Markdown"})
             return jsonify({"action": "verify_otp"})
         else:
             token = secrets.token_urlsafe(16)
@@ -86,29 +93,6 @@ def start_login():
     except Exception as e:
         print(f"Login Start Error: {e}")
         return jsonify({"error": "خطا در بررسی اطلاعات کاربر."}), 500
-
-@app.route('/update-user-profile', methods=['POST'])
-def update_user_profile():
-    data = request.get_json(silent=True)
-    if not data:
-        return jsonify({"error": "درخواست نامعتبر است."}), 400
-
-    national_id = data.get('national_id')
-    postal_code = data.get('postal_code')
-    address = data.get('address')
-
-    if not national_id:
-        return jsonify({"error": "کد ملی برای به‌روزرسانی پروفایل الزامی است."}), 400
-
-    try:
-        supabase.table('member').update({
-            "postal_code": postal_code,
-            "address": address
-        }).eq('nationalcode', national_id).execute()
-        return jsonify({"message": "اطلاعات شما با موفقیت ذخیره شد."})
-    except Exception as e:
-        print(f"Profile Update Error: {e}")
-        return jsonify({"error": "خطا در ذخیره‌سازی اطلاعات."}), 500
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
@@ -130,11 +114,22 @@ def webhook():
             if res.data:
                 requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": chat_id, "text": "این شماره موبایل قبلاً برای عضو دیگری ثبت شده است."})
                 return "ok", 200
+            
             supabase.table('member').update({"phonenumber": phone_from_bale, "chat_id": str(chat_id)}).eq('nationalcode', national_id).execute()
             del otp_storage[str(chat_id)]
+            
             otp_code = random.randint(10000, 99999)
             otp_storage[national_id] = {"code": str(otp_code), "timestamp": time.time()}
-            payload = {"chat_id": chat_id, "text": f"ثبت‌نام شما با موفقیت انجام شد.\nکد تایید شما: {otp_code}", "reply_markup": {"remove_keyboard": True}}
+            
+            # --- متن پیام اصلاح شده (برای کاربر جدید) ---
+            otp_message = (
+                f"ثبت‌نام شما با موفقیت انجام شد.\n"
+                f"کد ورود شما به سامانه تعاونی مصرف کارکنان حج و زیارت:\n\n"
+                f"*{otp_code}*\n\n"
+                f"_(این کد تا ۲ دقیقه دیگر معتبر است)_\n\n"
+                f"لطفاً این کد را در اختیار دیگران قرار ندهید."
+            )
+            payload = {"chat_id": chat_id, "text": otp_message, "parse_mode": "Markdown", "reply_markup": {"remove_keyboard": True}}
             requests.post(f"{BALE_API_URL}/sendMessage", json=payload)
         except Exception as e:
             print(f"Webhook Contact Error: {e}")
@@ -166,6 +161,21 @@ def verify_otp():
         return jsonify({"message": "ورود با موفقیت انجام شد!"})
     else:
         return jsonify({"error": "کد وارد شده صحیح نیست."}), 400
+
+@app.route('/update-user-profile', methods=['POST'])
+def update_user_profile():
+    data = request.get_json(silent=True)
+    if not data: return jsonify({"error": "درخواست نامعتبر است."}), 400
+    national_id = data.get('national_id')
+    postal_code = data.get('postal_code')
+    address = data.get('address')
+    if not national_id: return jsonify({"error": "کد ملی برای به‌روزرسانی پروفایل الزامی است."}), 400
+    try:
+        supabase.table('member').update({"postal_code": postal_code, "address": address}).eq('nationalcode', national_id).execute()
+        return jsonify({"message": "اطلاعات شما با موفقیت ذخیره شد."})
+    except Exception as e:
+        print(f"Profile Update Error: {e}")
+        return jsonify({"error": "خطا در ذخیره‌سازی اطلاعات."}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
