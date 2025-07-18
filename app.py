@@ -77,10 +77,10 @@ def start_login():
             otp_code = random.randint(10000, 99999)
             otp_storage[national_id] = {"code": str(otp_code), "timestamp": time.time()}
             
-            # --- متن پیام یکسان شده (برای کاربر بازگشته) ---
+            # --- متن پیام اصلاح شده (با پیشوند) ---
             otp_message = (
                 f"کد ورود شما به سامانه تعاونی مصرف کارکنان حج و زیارت:\n"
-                f"`{otp_code}`\n\n"
+                f"`کد: {otp_code}`\n\n"
                 f"_(این کد تا ۲ دقیقه دیگر معتبر است)_\n\n"
                 f"*لطفاً این کد را در اختیار دیگران قرار ندهید.*"
             )
@@ -126,11 +126,11 @@ def webhook():
             otp_code = random.randint(10000, 99999)
             otp_storage[national_id] = {"code": str(otp_code), "timestamp": time.time()}
             
-            # --- متن پیام یکسان شده (برای کاربر جدید) ---
+            # --- متن پیام اصلاح شده (با پیشوند) ---
             otp_message = (
-                f"ثبت‌نام شما با موفقیت انجام شد.\n\n"
-                f"کد ورود شما به سامانه تعاونی مصرف کارکنان حج و زیارت:\n"
-                f"`{otp_code}`\n\n"
+                f"ثبت‌نام شما با موفقیت انجام شد.\n"
+                f"کد ورود به سامانه:\n"
+                f"`کد: {otp_code}`\n\n"
                 f"_(این کد تا ۲ دقیقه دیگر معتبر است)_\n\n"
                 f"*لطفاً این کد را در اختیار دیگران قرار ندهید.*"
             )
@@ -152,7 +152,7 @@ def webhook():
     return "ok", 200
 
 @app.route('/update-user-profile', methods=['POST'])
-def update_user_profile():
+def update_user-profile():
     data = request.get_json(silent=True)
     if not data: return jsonify({"error": "درخواست نامعتبر است."}), 400
     national_id = data.get('national_id')
