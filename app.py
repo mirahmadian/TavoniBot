@@ -42,6 +42,7 @@ linking_tokens = {}
 # --- مسیرهای اصلی ---
 @app.route('/')
 def serve_index(): return send_from_directory(app.static_folder, 'index.html')
+
 @app.route('/profile.html')
 def serve_profile(): return send_from_directory(app.static_folder, 'profile.html')
 
@@ -72,11 +73,15 @@ def start_login():
     national_id = data.get('national_id')
 
     try:
-        response = supabase.table('member').select("phonenumber, chat_id").eq('nationalcode', national_id).single().execute()
+        # --- بخش اصلاح شده نهایی ---
+        # ما دستور .single() را حذف می‌کنیم تا کد مقاوم‌تر شود
+        response = supabase.table('member').select("phonenumber, chat_id").eq('nationalcode', national_id).execute()
+        # --- پایان بخش اصلاح شده ---
+
         if not response.data:
             return jsonify({"error": "کد ملی وارد شده در سامانه ثبت نشده است."}), 404
 
-        user = response.data
+        user = response.data[0]
         if user.get('phonenumber') and user.get('chat_id'):
             otp_code = random.randint(10000, 99999)
             otp_storage[national_id] = {"code": str(otp_code), "timestamp": time.time()}
@@ -86,6 +91,7 @@ def start_login():
             token = secrets.token_urlsafe(16)
             linking_tokens[token] = national_id
             return jsonify({"action": "register", "linking_token": token})
+
     except Exception as e:
         print(f"Login Start Error: {e}")
         return jsonify({"error": "خطا در بررسی اطلاعات کاربر."}), 500
@@ -94,7 +100,6 @@ def start_login():
 def webhook():
     data = request.get_json()
     if not data: return "ok", 200
-
     message = data.get("message", {})
     chat_id = message.get("chat", {}).get("id")
     if not chat_id: return "ok", 200
@@ -102,29 +107,23 @@ def webhook():
     if "contact" in message:
         phone_from_bale = message['contact']['phone_number']
         session_data = otp_storage.get(str(chat_id))
-        
         if not session_data or "national_id" not in session_data:
             requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": chat_id, "text": "فرآیند ثبت‌نام شما یافت نشد. لطفاً از سایت دوباره اقدام کنید."})
             return "ok", 200
-        
         national_id = session_data["national_id"]
-        
         try:
             res = supabase.table('member').select("nationalcode").eq('phonenumber', phone_from_bale).execute()
             if res.data:
-                requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": chat_id, "text": "این شماره موبایل قبلاً در سامانه برای عضو دیگری ثبت شده است."})
+                requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": chat_id, "text": "این شماره موبایل قبلاً برای عضو دیگری ثبت شده است."})
                 return "ok", 200
-            
             supabase.table('member').update({"phonenumber": phone_from_bale, "chat_id": chat_id}).eq('nationalcode', national_id).execute()
-            del otp_storage[str(chat_id)] # پاک کردن جلسه موقت
-            
+            del otp_storage[str(chat_id)]
             otp_code = random.randint(10000, 99999)
             otp_storage[national_id] = {"code": str(otp_code), "timestamp": time.time()}
             requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": chat_id, "text": f"ثبت‌نام شما با موفقیت انجام شد.\nکد تایید شما: {otp_code}"})
         except Exception as e:
             print(f"Webhook Contact Error: {e}")
             requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": chat_id, "text": "خطایی در فرآیند ثبت‌نام رخ داد."})
-
     elif "text" in message and message.get("text").startswith('/start '):
         token = message.get("text").split(' ', 1)[1]
         if token in linking_tokens:
@@ -141,18 +140,3 @@ def webhook():
 def verify_otp():
     data = request.get_json()
     national_id, otp_code = data.get('national_id'), data.get('otp_code')
-    if not all([national_id, otp_code]): return jsonify({"error": "اطلاعات ناقص است."}), 400
-    if national_id not in otp_storage: return jsonify({"error": "فرآیند ورود یافت نشد."}), 404
-    stored_otp = otp_storage[national_id]
-    if time.time() - stored_otp["timestamp"] > OTP_EXPIRATION_SECONDS:
-        del otp_storage[national_id]
-        return jsonify({"error": "کد تایید منقضی شده است."}), 410
-    if stored_otp["code"] == otp_code:
-        del otp_storage[national_id]
-        return jsonify({"message": "ورود با موفقیت انجام شد!"})
-    else:
-        return jsonify({"error": "کد وارد شده صحیح نیست."}), 400
-
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
