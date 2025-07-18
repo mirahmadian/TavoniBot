@@ -9,12 +9,12 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { font-family: Vazirmatn, sans-serif; background: linear-gradient(to right, #a8e6cf, #dcedc1); }
-        #modal_message { white-space: pre-wrap; text-align: left; direction: ltr; }
     </style>
 </head>
-<body>
+<body class="flex items-center justify-center min-h-screen">
     <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
         <h1 class="text-2xl font-bold text-center mb-6">ورود به سامانه تعاونی</h1>
+        
         <div id="step-1">
             <label class="block mb-2 font-semibold">کد ملی خود را وارد کنید:</label>
             <input type="text" id="nationalIdInput" class="input input-bordered w-full mb-4" placeholder="مثال: 0012345678" maxlength="10">
@@ -23,12 +23,22 @@
             <button id="sendCodeBtn" onclick="generateLink()" class="btn btn-success w-full">ادامه</button>
             <p id="msg" class="text-sm text-red-500 mt-2 text-center"></p>
         </div>
+        
+        <div id="step-2" class="hidden">
+            <div class="text-center mb-4 leading-loose text-gray-800">
+                <p>برای دریافت کد تایید، <a id="baleLink" href="#" target="_blank" class="link link-primary font-bold">اینجا</a> را کلیک نموده و منتظر بمانید.</p>
+                <p class="text-sm mt-1">کد تایید در پیام رسان بله برای شما ارسال می شود.</p>
+            </div>
+            <label class="block mb-2 font-semibold text-gray-800">کد تایید دریافت شده را وارد کنید:</label>
+            <input type="text" id="otpInput" class="input input-bordered w-full mb-4 text-center font-bold text-lg tracking-[.25em]" maxlength="5" placeholder="- - - - -">
+            <button id="verifyBtn" onclick="verifyOtp()" class="btn btn-primary w-full">تایید و ورود</button>
+        </div>
     </div>
 
     <dialog id="message_modal" class="modal">
-        <div class="modal-box max-w-2xl text-center">
+        <div class="modal-box text-center">
             <h3 id="modal_title" class="font-bold text-lg"></h3>
-            <pre id="modal_message" class="py-4 bg-gray-100 p-4 rounded-md overflow-x-auto"></pre>
+            <p id="modal_message" class="py-4"></p>
             <div class="modal-action justify-center">
                 <form method="dialog"><button id="modal_button" class="btn">بستن</button></form>
             </div>
@@ -37,11 +47,16 @@
 
     <script>
         const API_BACKEND_URL = "https://tavonibot.onrender.com";
+        const BALE_BOT_USERNAME = "TavoniBot";
+        let currentNationalId = "";
 
-        function showModal(title, message) {
+        function showModal(title, message, isSuccess) {
             const modal = document.getElementById('message_modal');
             document.getElementById('modal_title').textContent = title;
             document.getElementById('modal_message').textContent = message;
+            const modalButton = document.getElementById('modal_button');
+            modalButton.className = 'btn';
+            if (isSuccess) { modalButton.classList.add('btn-success'); } else { modalButton.classList.add('btn-error'); }
             modal.showModal();
         }
 
@@ -51,34 +66,63 @@
             const msgEl = document.getElementById('msg');
             const sendBtn = document.getElementById('sendCodeBtn');
             msgEl.textContent = '';
+            currentNationalId = nationalId;
             
             sendBtn.disabled = true;
             sendBtn.textContent = 'لطفاً صبر کنید...';
-
             try {
                 const response = await fetch(`${API_BACKEND_URL}/generate-linking-token`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        nationalId: nationalId,
-                        phoneNumber: phone
-                    })
+                    body: JSON.stringify({ national_id: nationalId, phone_number: phone })
                 });
-
                 const result = await response.json();
-
-                if (response.ok && result.message === "DEBUGGING_INFORMATION") {
-                    const debugText = JSON.stringify(result, null, 2);
-                    showModal('Debugging Information', debugText);
+                if (response.ok) {
+                    const linkingToken = result.linking_token;
+                    document.getElementById('baleLink').href = `https://ble.ir/${BALE_BOT_USERNAME}?start=${linkingToken}`;
+                    document.getElementById('step-1').classList.add('hidden');
+                    document.getElementById('step-2').classList.remove('hidden');
                 } else {
                     msgEl.textContent = result.error || 'یک خطای ناشناخته رخ داد.';
                 }
-
             } catch (error) {
-                showModal('خطا', 'خطا در برقراری ارتباط با سرور.');
+                showModal('خطا', 'خطا در برقراری ارتباط با سرور.', false);
             } finally {
                 sendBtn.disabled = false;
                 sendBtn.textContent = 'ادامه';
+            }
+        }
+
+        async function verifyOtp() {
+            const otpCode = document.getElementById('otpInput').value.trim();
+            const verifyBtn = document.getElementById('verifyBtn');
+            if (!/^\d{5}$/.test(otpCode)) {
+                showModal('خطا', 'کد تایید باید ۵ رقم باشد.', false);
+                return;
+            }
+            verifyBtn.disabled = true;
+            verifyBtn.textContent = 'در حال بررسی...';
+            try {
+                const response = await fetch(`${API_BACKEND_URL}/verify-otp`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ national_id: currentNationalId, otp_code: otpCode })
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    showModal('ورود موفقیت‌آمیز', 'شما با موفقیت وارد شدید. برای ورود به پنل کاربری، این پنجره را ببندید.', true);
+                    const modal = document.getElementById('message_modal');
+                    modal.addEventListener('close', () => {
+                        window.location.href = `profile.html?nid=${currentNationalId}`;
+                    }, { once: true });
+                } else {
+                    showModal('خطا', result.error || "خطای نامشخص.", false);
+                }
+            } catch(error) {
+                showModal('خطا', 'خطا در ارتباط با سرور.', false);
+            } finally {
+                verifyBtn.disabled = false;
+                verifyBtn.textContent = 'تایید و ورود';
             }
         }
     </script>

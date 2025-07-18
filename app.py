@@ -8,21 +8,17 @@ import random
 import os
 import time
 import secrets
-import sys # برای خروج امن از برنامه
+import sys
 
 load_dotenv()
 
 # --- بررسی امنیتی اولیه برای متغیرهای محیطی ---
 required_vars = ["BOT_TOKEN", "SUPABASE_URL", "SUPABASE_KEY"]
 missing_vars = [var for var in required_vars if os.environ.get(var) is None]
-
 if missing_vars:
     print(f"FATAL ERROR: The following environment variables are missing: {', '.join(missing_vars)}")
-    sys.exit(1) # برنامه را با کد خطا متوقف می‌کند
-
+    sys.exit(1)
 print("All critical environment variables are set. Proceeding...")
-# --- پایان بررسی امنیتی ---
-
 
 app = Flask(__name__, static_folder='static')
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -40,11 +36,10 @@ except Exception as e:
     print(f"ERROR: Could not connect to services. {e}")
     sys.exit(1)
 
-# ... بقیه کد شما بدون تغییر است ...
 otp_storage = {}
 linking_tokens = {}
 
-# --- مسیر اصلی و پروفایل ---
+# --- مسیرهای اصلی ---
 @app.route('/')
 def serve_index():
     return send_from_directory(app.static_folder, 'index.html')
@@ -53,7 +48,7 @@ def serve_index():
 def serve_profile():
     return send_from_directory(app.static_folder, 'profile.html')
 
-# --- مسیر خواندن پروفایل ---
+# --- API Endpoints ---
 @app.route('/get-user-profile')
 def get_user_profile():
     national_id = request.args.get('nid')
@@ -71,7 +66,6 @@ def get_user_profile():
     except Exception as e:
         return jsonify({"error": f"Database Error: {str(e)}"}), 500
 
-# --- مسیر تولید توکن ---
 @app.route('/generate-linking-token', methods=['POST'])
 def generate_linking_token():
     data = request.get_json(silent=True)
@@ -94,7 +88,6 @@ def generate_linking_token():
     linking_tokens[token] = national_id
     return jsonify({"linking_token": token})
 
-# --- بقیه مسیرهای API (بدون تغییر) ---
 @app.route('/webhook', methods=['POST'])
 def webhook():
     data = request.get_json()
