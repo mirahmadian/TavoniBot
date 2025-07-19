@@ -15,8 +15,8 @@
     <div class="max-w-4xl mx-auto">
         <div class="flex justify-between items-center mb-8">
             <h1 id="welcome_message" class="text-2xl font-bold text-gray-800">خوش آمدید، ...</h1>
-            <a href="/index.html" class="btn btn-sm btn-outline btn-error">خروج</a>
-        </div>
+            <a href="/" class="btn btn-sm btn-outline btn-error">خروج</a>
+            </div>
 
         <div class="bg-white p-6 rounded-2xl shadow-md mb-8">
             <h2 class="text-xl font-semibold mb-4 border-b pb-2">وضعیت سهام شما</h2>
@@ -77,12 +77,8 @@
             const data = await response.json();
 
             if (response.ok) {
-                // --- بخش اصلاح شده ---
                 document.getElementById('welcome_message').textContent = `سهامدار محترم جناب آقای ${data.first_name} ${data.last_name}، خوش آمدید.`;
-                // --- پایان بخش اصلاح شده ---
-                
                 document.getElementById('share_percentage').textContent = data.share_percentage || 0;
-                
                 loadingEl.classList.add('hidden');
                 contentEl.classList.remove('hidden');
             } else {
