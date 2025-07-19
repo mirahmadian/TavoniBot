@@ -62,7 +62,6 @@
             return;
         }
         
-        // لینک‌ها را با کد ملی کاربر به‌روز می‌کنیم
         document.getElementById('sell_shares_link').href = `sell_share.html?nid=${currentNationalId}`;
         document.getElementById('buy_shares_link').href = `view_offers.html?nid=${currentNationalId}`;
 
@@ -78,12 +77,11 @@
             const data = await response.json();
 
             if (response.ok) {
-                document.getElementById('welcome_message').textContent = `خوش آمدید، ${data.first_name} ${data.last_name}`;
-                
                 // --- بخش اصلاح شده ---
-                // نام کلید 'share_percentage' به درستی استفاده شده است
-                document.getElementById('share_percentage').textContent = data.share_percentage;
+                document.getElementById('welcome_message').textContent = `سهامدار محترم جناب آقای ${data.first_name} ${data.last_name}، خوش آمدید.`;
                 // --- پایان بخش اصلاح شده ---
+                
+                document.getElementById('share_percentage').textContent = data.share_percentage || 0;
                 
                 loadingEl.classList.add('hidden');
                 contentEl.classList.remove('hidden');
