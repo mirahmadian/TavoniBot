@@ -60,10 +60,14 @@
                     return;
                 }
 
-                containerEl.innerHTML = ''; // خالی کردن کانتینر
+                containerEl.innerHTML = ''; // خالی کردن کانتینر قبل از افزودن کارت‌های جدید
                 offers.forEach(offer => {
-                    // برای هر پیشنهاد، یک کارت HTML می‌سازیم
-                    const sellerName = `${offer.member.first_name} ${offer.member.last_name}`;
+                    // فقط پیشنهادهای دیگران را نمایش بده
+                    if (offer.seller_national_id === currentNationalId) {
+                        return;
+                    }
+                    
+                    const sellerName = `${offer.member.first_name || ''} ${offer.member.last_name || ''}`;
                     const priceFormatted = offer.price.toLocaleString('fa-IR');
                     const normalizedPriceFormatted = offer.normalized_price.toLocaleString('fa-IR');
 
@@ -75,13 +79,18 @@
                                 <p><strong>قیمت پیشنهادی:</strong> ${priceFormatted} تومان</p>
                                 <p class="text-sm text-gray-500 mt-2">قیمت معادل ۱۰۰٪: ${normalizedPriceFormatted} تومان</p>
                                 <div class="card-actions justify-end mt-4">
-                                    <button class="btn btn-primary btn-sm">مشاهده و درخواست خرید</button>
+                                    <a href="offer_detail.html?id=${offer.id}&nid=${currentNationalId}" class="btn btn-primary btn-sm">مشاهده و درخواست خرید</a>
                                 </div>
                             </div>
                         </div>
                     `;
                     containerEl.innerHTML += cardHTML;
                 });
+                
+                // اگر بعد از فیلتر کردن، هیچ پیشنهادی برای نمایش نبود
+                if(containerEl.innerHTML === ''){
+                    noOffersEl.classList.remove('hidden');
+                }
 
             } else {
                 noOffersEl.textContent = offers.error || 'خطا در بارگذاری اطلاعات.';
