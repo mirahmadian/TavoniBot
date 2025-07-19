@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ثبت پیشنهاد فروش - سامانه تعاونی</title>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.20/dist/full.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/@fontsource/vazirmatn@latest/index.css" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: Vazirmatn, sans-serif; background-color: #f0f2f5; }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-2xl mx-auto bg-white p-8 rounded-2xl shadow-md">
+        <h1 class="text-2xl font-bold text-center mb-6">ثبت پیشنهاد جدید برای فروش سهام</h1>
+        
+        <p class="text-center mb-4">میزان سهم قابل فروش شما: <span id="share_percentage" class="font-bold text-primary">...</span> درصد</p>
+
+        <div class="form-control w-full mb-4">
+            <label class="label"><span class="label-text">درصد سهام برای فروش را انتخاب کنید:</span></label>
+            <select id="percentage_to_sell" class="select select-bordered">
+                <option disabled selected>یک گزینه را انتخاب کنید</option>
+                <option value="25">۲۵ درصد</option>
+                <option value="50">۵۰ درصد</option>
+                <option value="75">۷۵ درصد</option>
+                <option value="100">۱۰۰ درصد (فروش کامل)</option>
+            </select>
+        </div>
+
+        <div class="form-control w-full mb-4">
+            <label class="label"><span class="label-text">قیمت پیشنهادی خود را به تومان وارد کنید:</span></label>
+            <input type="number" id="price" placeholder="مثال: 150000000" class="input input-bordered text-left" dir="ltr">
+        </div>
+
+        <div class="form-control">
+            <label class="label cursor-pointer">
+                <span class="label-text">من با قوانین و مقررات واگذاری سهام موافقم.</span> 
+                <input type="checkbox" id="terms_agree" class="checkbox checkbox-primary" />
+            </label>
+        </div>
+
+        <div class="mt-6">
+            <button id="submit_offer_btn" onclick="submitOffer()" class="btn btn-primary w-full">ثبت نهایی پیشنهاد فروش</button>
+        </div>
+    </div>
+    </body>
+</html>

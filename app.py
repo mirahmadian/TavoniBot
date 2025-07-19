@@ -42,15 +42,20 @@ linking_tokens = {}
 # --- مسیرهای اصلی ---
 @app.route('/')
 def serve_index(): return send_from_directory(app.static_folder, 'index.html')
+
 @app.route('/profile.html')
 def serve_profile(): return send_from_directory(app.static_folder, 'profile.html')
+
 @app.route('/dashboard.html')
 def serve_dashboard(): return send_from_directory(app.static_folder, 'dashboard.html')
 
-# --- مسیر جدید برای بیدار نگه داشتن سرور ---
-@app.route('/health-check')
-def health_check():
-    return jsonify({"status": "alive"}), 200
+@app.route('/sell_share.html')
+def serve_sell_share():
+    return send_from_directory(app.static_folder, 'sell_share.html')
+
+@app.route('/view_offers.html')
+def serve_view_offers():
+    return send_from_directory(app.static_folder, 'view_offers.html')
 
 # --- API Endpoints ---
 @app.route('/get-user-profile')
