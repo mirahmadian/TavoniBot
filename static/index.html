@@ -39,7 +39,7 @@
         const API_BACKEND_URL = "https://tavonibot.onrender.com";
         const BALE_BOT_USERNAME = "TavoniBot";
         let currentNationalId = "";
-        let otpTimer; // متغیر برای نگهداری تایمر
+        let otpTimer;
 
         function showModal(title, message, isSuccess) {
             const modal = document.getElementById('message_modal');
@@ -57,15 +57,12 @@
             const sendBtn = document.getElementById('sendCodeBtn');
             msgEl.textContent = '';
             currentNationalId = nationalId;
-
             if (!/^\d{10}$/.test(nationalId)) {
                 msgEl.textContent = "کد ملی باید ۱۰ رقم باشد.";
                 return;
             }
-
             sendBtn.disabled = true;
             sendBtn.textContent = 'در حال بررسی...';
-
             try {
                 const response = await fetch(`${API_BACKEND_URL}/start-login`, {
                     method: 'POST',
@@ -73,7 +70,6 @@
                     body: JSON.stringify({ national_id: nationalId })
                 });
                 const result = await response.json();
-
                 if (response.ok) {
                     setupStep2(result);
                 } else {
@@ -90,7 +86,6 @@
         function setupStep2(data) {
             const step2Div = document.getElementById('step-2');
             let content = '';
-
             const otpSectionHTML = `
                 <label class="block mb-2 font-semibold text-gray-800">کد تایید دریافت شده را وارد کنید:</label>
                 <input type="text" id="otpInput" class="input input-bordered w-full mb-2 text-center font-bold text-lg tracking-[.25em]" maxlength="5" placeholder="- - - - -">
@@ -99,24 +94,13 @@
                 </div>
                 <button id="verifyBtn" onclick="verifyOtp()" class="btn btn-primary w-full">تایید و ورود</button>
             `;
-
             if (data.action === 'verify_otp') {
-                content = `
-                    <p class="text-center mb-4 text-gray-800">شما قبلاً ثبت‌نام کرده‌اید. کد تایید به حساب بله شما ارسال شد.</p>
-                    ${otpSectionHTML}
-                `;
+                content = `<p class="text-center mb-4 text-gray-800">شما قبلاً ثبت‌نام کرده‌اید. کد تایید به حساب بله شما ارسال شد.</p>${otpSectionHTML}`;
             } else if (data.action === 'register') {
                 const linkingToken = data.linking_token;
                 const baleLink = `https://ble.ir/${BALE_BOT_USERNAME}?start=${linkingToken}`;
-                content = `
-                    <div class="text-center mb-4 leading-loose text-gray-800">
-                        <p>برای ثبت‌نام اولیه، <a href="${baleLink}" target="_blank" class="link link-primary font-bold">اینجا</a> را کلیک کرده و شماره موبایل خود را در بله به اشتراک بگذارید.</p>
-                        <p class="text-sm mt-1">پس از آن، کد تایید برای شما ارسال می‌شود.</p>
-                    </div>
-                    ${otpSectionHTML}
-                `;
+                content = `<div class="text-center mb-4 leading-loose text-gray-800"><p>برای ثبت‌نام اولیه، <a href="${baleLink}" target="_blank" class="link link-primary font-bold">اینجا</a> را کلیک کرده و شماره موبایل خود را در بله به اشتراک بگذارید.</p><p class="text-sm mt-1">پس از آن، کد تایید برای شما ارسال می‌شود.</p></div>${otpSectionHTML}`;
             }
-
             step2Div.innerHTML = content;
             document.getElementById('step-1').classList.add('hidden');
             step2Div.classList.remove('hidden');
@@ -129,17 +113,13 @@
             const timerMessage = document.getElementById('timer_message');
             const verifyBtn = document.getElementById('verifyBtn');
             const otpInput = document.getElementById('otpInput');
-
             if (otpTimer) clearInterval(otpTimer);
-
             otpTimer = setInterval(() => {
                 const minutes = Math.floor(duration / 60);
                 let seconds = duration % 60;
                 seconds = seconds < 10 ? "0" + seconds : seconds;
-                
                 timerDisplay.textContent = `${minutes}:${seconds}`;
                 duration--;
-
                 if (duration < 0) {
                     clearInterval(otpTimer);
                     timerMessage.textContent = "کد منقضی شد! لطفاً صفحه را رفرش کرده و دوباره تلاش کنید.";
@@ -166,11 +146,15 @@
                 });
                 const result = await response.json();
                 if (response.ok) {
-                    clearInterval(otpTimer); // متوقف کردن تایمر در صورت موفقیت
-                    showModal('ورود موفقیت‌آمیز', 'شما با موفقیت وارد شدید. برای ورود به پنل کاربری، این پنجره را ببندید.', true);
+                    clearInterval(otpTimer);
+                    showModal('ورود موفقیت‌آمیز', 'شما با موفقیت وارد شدید. در حال انتقال...', true);
                     const modal = document.getElementById('message_modal');
                     modal.addEventListener('close', () => {
-                        window.location.href = `profile.html?nid=${currentNationalId}`;
+                        if (result.action === 'go_to_dashboard') {
+                            window.location.href = `dashboard.html?nid=${currentNationalId}`;
+                        } else {
+                            window.location.href = `profile.html?nid=${currentNationalId}`;
+                        }
                     }, { once: true });
                 } else {
                     showModal('خطا', result.error || "خطای نامشخص.", false);

@@ -50,10 +50,7 @@ def serve_dashboard(): return send_from_directory(app.static_folder, 'dashboard.
 # --- API Endpoints ---
 @app.route('/get-user-profile')
 def get_user_profile():
-    # --- بخش اصلاح شده ---
-    # پرانتز و کوتیشن بسته فراموش شده بود
     national_id = request.args.get('nid')
-    # --- پایان بخش اصلاح شده ---
     if not national_id: return jsonify({"error": "کد ملی ارسال نشده است."}), 400
     try:
         response = supabase.table('member').select("first_name, last_name, nationalcode, phonenumber, address, postal_code").eq('nationalcode', national_id).execute()
@@ -182,7 +179,19 @@ def verify_otp():
         return jsonify({"error": "کد تایید منقضی شده است."}), 410
     if stored_otp["code"] == otp_code:
         del otp_storage[national_id]
-        return jsonify({"message": "ورود با موفقیت انجام شد!"})
+        try:
+            response = supabase.table('member').select("address, postal_code").eq('nationalcode', national_id).execute()
+            if response.data:
+                user_profile = response.data[0]
+                if user_profile.get('address') and user_profile.get('postal_code'):
+                    return jsonify({"message": "ورود موفقیت‌آمیز بود!", "action": "go_to_dashboard"})
+                else:
+                    return jsonify({"message": "ورود موفقیت‌آمیز بود!", "action": "go_to_profile"})
+            else:
+                 return jsonify({"message": "ورود موفقیت‌آمیز بود!", "action": "go_to_profile"})
+        except Exception as e:
+            print(f"Profile check error: {e}")
+            return jsonify({"message": "ورود موفقیت‌آمیز بود!", "action": "go_to_profile"})
     else:
         return jsonify({"error": "کد وارد شده صحیح نیست."}), 400
 
