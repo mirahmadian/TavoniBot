@@ -101,7 +101,6 @@ def start_login():
         
         user = response.data[0]
         if user.get('share_percentage') is None:
-            print(f"User {national_id} has NULL share_percentage. Setting to 100.")
             supabase.table('member').update({"share_percentage": 100}).eq('nationalcode', national_id).execute()
 
         if user.get('phonenumber') and user.get('chat_id'):
@@ -132,6 +131,31 @@ def update_user_profile():
     except Exception as e:
         print(f"Profile Update Error: {e}")
         return jsonify({"error": "خطا در ذخیره‌سازی اطلاعات."}), 500
+
+@app.route('/api/sale-offers', methods=['POST'])
+def create_sale_offer():
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "درخواست نامعتبر است."}), 400
+
+    national_id = data.get('national_id')
+    percentage = data.get('percentage_to_sell')
+    price = data.get('price')
+
+    if not all([national_id, percentage, price]):
+        return jsonify({"error": "اطلاعات ارسالی ناقص است."}), 400
+
+    try:
+        supabase.table('sale_offers').insert({
+            "seller_national_id": national_id,
+            "percentage_to_sell": percentage,
+            "price": price,
+            "status": "active"
+        }).execute()
+        return jsonify({"message": "پیشنهاد شما با موفقیت ثبت شد."}), 201
+    except Exception as e:
+        print(f"Create Offer DB Error: {e}")
+        return jsonify({"error": "خطا در ثبت پیشنهاد در پایگاه داده."}), 500
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
@@ -176,40 +200,4 @@ def webhook():
             national_id = linking_tokens.pop(token)
             otp_storage[str(chat_id)] = {"national_id": national_id}
             payload = {
-                "chat_id": chat_id, "text": "برای تکمیل ثبت‌نام اولیه، لطفاً روی دکمه زیر کلیک کرده و شماره موبایل خود را با ما به اشتراک بگذارید.",
-                "reply_markup": {"keyboard": [[{"text": "🔒 اشتراک‌گذاری شماره موبایل", "request_contact": True}]], "resize_keyboard": True, "one_time_keyboard": True}
-            }
-            requests.post(f"{BALE_API_URL}/sendMessage", json=payload)
-    return "ok", 200
-
-@app.route('/verify-otp', methods=['POST'])
-def verify_otp():
-    data = request.get_json()
-    national_id, otp_code = data.get('national_id'), data.get('otp_code')
-    if not all([national_id, otp_code]): return jsonify({"error": "اطلاعات ناقص است."}), 400
-    if national_id not in otp_storage: return jsonify({"error": "فرآیند ورود یافت نشد."}), 404
-    stored_otp = otp_storage[national_id]
-    if time.time() - stored_otp["timestamp"] > OTP_EXPIRATION_SECONDS:
-        del otp_storage[national_id]
-        return jsonify({"error": "کد تایید منقضی شده است."}), 410
-    if stored_otp["code"] == otp_code:
-        del otp_storage[national_id]
-        try:
-            response = supabase.table('member').select("address, postal_code").eq('nationalcode', national_id).execute()
-            if response.data:
-                user_profile = response.data[0]
-                if user_profile.get('address') and user_profile.get('postal_code'):
-                    return jsonify({"message": "ورود موفقیت‌آمیز بود!", "action": "go_to_dashboard"})
-                else:
-                    return jsonify({"message": "ورود موفقیت‌آمیز بود!", "action": "go_to_profile"})
-            else:
-                 return jsonify({"message": "ورود موفقیت‌آمیز بود!", "action": "go_to_profile"})
-        except Exception as e:
-            print(f"Profile check error: {e}")
-            return jsonify({"message": "ورود موفقیت‌آمیز بود!", "action": "go_to_profile"})
-    else:
-        return jsonify({"error": "کد وارد شده صحیح نیست."}), 400
-
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+                "chat_id": chat_id, "text": "برای تکمیل ثبت‌نام اولیه، لطفاً روی دکمه

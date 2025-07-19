@@ -13,7 +13,10 @@
 </head>
 <body class="p-4 md:p-8">
     <div class="max-w-2xl mx-auto bg-white p-8 rounded-2xl shadow-md">
-        <h1 class="text-2xl font-bold text-center mb-6">ثبت پیشنهاد جدید برای فروش سهام</h1>
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold">ثبت پیشنهاد جدید برای فروش سهام</h1>
+            <a href="/dashboard.html" class="btn btn-sm btn-ghost">بازگشت به داشبورد</a>
+        </div>
         
         <p class="text-center mb-4">میزان سهم قابل فروش شما: <span id="share_percentage" class="font-bold text-primary">...</span> درصد</p>
 
@@ -30,19 +33,114 @@
 
         <div class="form-control w-full mb-4">
             <label class="label"><span class="label-text">قیمت پیشنهادی خود را به تومان وارد کنید:</span></label>
-            <input type="number" id="price" placeholder="مثال: 150000000" class="input input-bordered text-left" dir="ltr">
+            <input type="text" id="price" placeholder="مثال: 150,000,000" class="input input-bordered text-left" dir="ltr">
         </div>
 
         <div class="form-control">
-            <label class="label cursor-pointer">
-                <span class="label-text">من با قوانین و مقررات واگذاری سهام موافقم.</span> 
+            <label class="label cursor-pointer justify-start gap-2">
                 <input type="checkbox" id="terms_agree" class="checkbox checkbox-primary" />
+                <span class="label-text">من <a href="#" onclick="terms_modal.showModal()" class="link link-primary">قوانین و مقررات واگذاری سهام</a> را می‌پذیرم.</span> 
             </label>
         </div>
 
         <div class="mt-6">
-            <button id="submit_offer_btn" onclick="submitOffer()" class="btn btn-primary w-full">ثبت نهایی پیشنهاد فروش</button>
+            <button id="submit_offer_btn" onclick="validateOffer()" class="btn btn-primary w-full">ثبت نهایی پیشنهاد فروش</button>
         </div>
     </div>
-    </body>
+
+    <dialog id="terms_modal" class="modal">
+        <div class="modal-box">
+            <h3 class="font-bold text-lg">قوانین و مقررات واگذاری سهام</h3>
+            <p class="py-4">۱. واگذاری سهام صرفاً بین اعضای تعاونی مجاز است.</p>
+            <p class="py-4">۲. قیمت‌گذاری به صورت توافقی بوده و تعاونی مسئولیتی در قبال آن ندارد.</p>
+            <p class="py-4">۳. پس از تأیید نهایی توسط خریدار و فروشنده، مبلغ ۱۰٪ از کل مبلغ معامله به عنوان کارمزد به حساب تعاونی واریز خواهد شد.</p>
+            <div class="modal-action">
+                <form method="dialog"><button class="btn">متوجه شدم</button></form>
+            </div>
+        </div>
+    </dialog>
+
+    <dialog id="confirm_modal" class="modal">
+        <div class="modal-box text-center">
+            <h3 class="font-bold text-lg">آیا از ثبت این پیشنهاد مطمئن هستید؟</h3>
+            <p id="confirm_text" class="py-4"></p>
+            <div class="modal-action justify-center gap-4">
+                <button onclick="submitOffer()" class="btn btn-success">بله، ثبت کن</button>
+                <form method="dialog"><button class="btn btn-ghost">خیر، انصراف</button></form>
+            </div>
+        </div>
+    </dialog>
+
+    <dialog id="message_modal" class="modal">
+        </dialog>
+
+<script>
+    const API_BACKEND_URL = "https://tavonibot.onrender.com";
+    let currentNationalId = '';
+    
+    // تابع برای قالب‌بندی اعداد
+    const priceInput = document.getElementById('price');
+    priceInput.addEventListener('input', (e) => {
+        let value = e.target.value.replace(/,/g, '');
+        if (!isNaN(value) && value.length > 0) {
+            e.target.value = parseInt(value, 10).toLocaleString('en-US');
+        } else {
+            e.target.value = '';
+        }
+    });
+
+    // تابع اعتبارسنجی اولیه فرم
+    function validateOffer() {
+        const percentage = document.getElementById('percentage_to_sell').value;
+        const price = document.getElementById('price').value;
+        const terms = document.getElementById('terms_agree').checked;
+
+        if (!terms) {
+            alert('لطفاً ابتدا قوانین و مقررات را بپذیرید.');
+            return;
+        }
+        if (isNaN(parseInt(percentage))) {
+            alert('لطفاً درصد سهام برای فروش را انتخاب کنید.');
+            return;
+        }
+        if (price === '') {
+            alert('لطفاً قیمت پیشنهادی را وارد کنید.');
+            return;
+        }
+
+        // نمایش پاپ‌آپ تأیید نهایی
+        const cleanPrice = price.replace(/,/g, '');
+        const confirmText = `شما قصد دارید ${percentage}% از سهم خود را به قیمت ${parseInt(cleanPrice).toLocaleString('fa-IR')} تومان برای فروش ثبت کنید.`;
+        document.getElementById('confirm_text').textContent = confirmText;
+        confirm_modal.showModal();
+    }
+
+    // تابع نهایی برای ارسال پیشنهاد به سرور
+    async function submitOffer() {
+        // بستن پاپ‌آپ تاییدیه
+        confirm_modal.close();
+
+        const percentage = document.getElementById('percentage_to_sell').value;
+        const price = document.getElementById('price').value.replace(/,/g, '');
+
+        // TODO: ارسال این اطلاعات به سرور
+        console.log({
+            national_id: currentNationalId,
+            percentage_to_sell: parseInt(percentage),
+            price: parseInt(price)
+        });
+
+        alert('پیشنهاد شما با موفقیت ثبت شد! (این بخش در مرحله بعد به سرور متصل خواهد شد)');
+        // window.location.href = `dashboard.html?nid=${currentNationalId}`;
+    }
+
+    // گرفتن کد ملی از URL در زمان بارگذاری صفحه
+    window.onload = function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        currentNationalId = urlParams.get('nid');
+        // TODO: گرفتن درصد سهام کاربر از سرور و نمایش آن
+    };
+
+</script>
+</body>
 </html>
