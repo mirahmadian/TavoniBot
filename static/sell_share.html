@@ -15,7 +15,7 @@
     <div class="max-w-2xl mx-auto bg-white p-8 rounded-2xl shadow-md">
         <div class="flex justify-between items-center mb-6">
             <h1 class="text-2xl font-bold">ثبت پیشنهاد جدید برای فروش سهام</h1>
-            <a href="/dashboard.html" class="btn btn-sm btn-ghost">بازگشت به داشبورد</a>
+            <a id="dashboard_link" href="#" class="btn btn-sm btn-ghost">بازگشت به داشبورد</a>
         </div>
         
         <p class="text-center mb-4">میزان سهم قابل فروش شما: <span id="share_percentage" class="font-bold text-primary">...</span> درصد</p>
@@ -53,7 +53,7 @@
             <h3 class="font-bold text-lg">قوانین و مقررات واگذاری سهام</h3>
             <p class="py-4">۱. واگذاری سهام صرفاً بین اعضای تعاونی مجاز است.</p>
             <p class="py-4">۲. قیمت‌گذاری به صورت توافقی بوده و تعاونی مسئولیتی در قبال آن ندارد.</p>
-            <p class="py-4">۳. پس از تأیید نهایی توسط خریدار و فروشنده، مبلغ ۱۰٪ از کل مبلغ معامله به عنوان کارمزد به حساب تعاونی واریز خواهد شد.</p>
+            <p class="py-4">۳. پس از تأیید نهایی، مبلغی به عنوان کارمزد به حساب تعاونی واریز خواهد شد.</p>
             <div class="modal-action">
                 <form method="dialog"><button class="btn">متوجه شدم</button></form>
             </div>
@@ -72,75 +72,111 @@
     </dialog>
 
     <dialog id="message_modal" class="modal">
-        </dialog>
+        <div class="modal-box text-center">
+            <h3 id="modal_title" class="font-bold text-lg"></h3>
+            <p id="modal_message" class="py-4"></p>
+            <div class="modal-action justify-center">
+                <form method="dialog"><button id="modal_button" class="btn">بستن</button></form>
+            </div>
+        </div>
+    </dialog>
 
 <script>
     const API_BACKEND_URL = "https://tavonibot.onrender.com";
     let currentNationalId = '';
-    
-    // تابع برای قالب‌بندی اعداد
+
+    function showModal(title, message, isSuccess) {
+        const modal = document.getElementById('message_modal');
+        document.getElementById('modal_title').textContent = title;
+        document.getElementById('modal_message').textContent = message;
+        const modalButton = document.getElementById('modal_button');
+        modalButton.className = 'btn';
+        if (isSuccess) { modalButton.classList.add('btn-success'); } 
+        else { modalButton.classList.add('btn-error'); }
+        modal.showModal();
+    }
+
     const priceInput = document.getElementById('price');
     priceInput.addEventListener('input', (e) => {
         let value = e.target.value.replace(/,/g, '');
-        if (!isNaN(value) && value.length > 0) {
+        if (!isNaN(value) && value !== '' && value !== null) {
             e.target.value = parseInt(value, 10).toLocaleString('en-US');
         } else {
             e.target.value = '';
         }
     });
 
-    // تابع اعتبارسنجی اولیه فرم
     function validateOffer() {
         const percentage = document.getElementById('percentage_to_sell').value;
         const price = document.getElementById('price').value;
         const terms = document.getElementById('terms_agree').checked;
 
         if (!terms) {
-            alert('لطفاً ابتدا قوانین و مقررات را بپذیرید.');
+            showModal('خطا', 'لطفاً ابتدا قوانین و مقررات را بپذیرید.', false);
             return;
         }
         if (isNaN(parseInt(percentage))) {
-            alert('لطفاً درصد سهام برای فروش را انتخاب کنید.');
+            showModal('خطا', 'لطفاً درصد سهام برای فروش را انتخاب کنید.', false);
             return;
         }
         if (price === '') {
-            alert('لطفاً قیمت پیشنهادی را وارد کنید.');
+            showModal('خطا', 'لطفاً قیمت پیشنهادی را وارد کنید.', false);
             return;
         }
 
-        // نمایش پاپ‌آپ تأیید نهایی
         const cleanPrice = price.replace(/,/g, '');
         const confirmText = `شما قصد دارید ${percentage}% از سهم خود را به قیمت ${parseInt(cleanPrice).toLocaleString('fa-IR')} تومان برای فروش ثبت کنید.`;
         document.getElementById('confirm_text').textContent = confirmText;
         confirm_modal.showModal();
     }
 
-    // تابع نهایی برای ارسال پیشنهاد به سرور
     async function submitOffer() {
-        // بستن پاپ‌آپ تاییدیه
         confirm_modal.close();
-
+        const submitBtn = document.getElementById('submit_offer_btn');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="loading loading-spinner"></span> در حال ثبت...';
+        
         const percentage = document.getElementById('percentage_to_sell').value;
         const price = document.getElementById('price').value.replace(/,/g, '');
 
-        // TODO: ارسال این اطلاعات به سرور
-        console.log({
-            national_id: currentNationalId,
-            percentage_to_sell: parseInt(percentage),
-            price: parseInt(price)
-        });
+        try {
+            const response = await fetch(`${API_BACKEND_URL}/api/sale-offers`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    national_id: currentNationalId,
+                    percentage_to_sell: parseInt(percentage),
+                    price: parseInt(price)
+                })
+            });
+            const result = await response.json();
 
-        alert('پیشنهاد شما با موفقیت ثبت شد! (این بخش در مرحله بعد به سرور متصل خواهد شد)');
-        // window.location.href = `dashboard.html?nid=${currentNationalId}`;
+            if (response.ok) {
+                const modal = document.getElementById('message_modal');
+                showModal('موفقیت', result.message, true);
+                // پس از بستن پاپ‌آپ موفقیت، به داشبورد برگرد
+                modal.addEventListener('close', () => {
+                    window.location.href = `dashboard.html?nid=${currentNationalId}`;
+                }, { once: true });
+            } else {
+                showModal('خطا', result.error, false);
+            }
+        } catch(error) {
+            showModal('خطا', 'خطا در برقراری ارتباط با سرور.', false);
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'ثبت نهایی پیشنهاد فروش';
+        }
     }
 
-    // گرفتن کد ملی از URL در زمان بارگذاری صفحه
     window.onload = function() {
         const urlParams = new URLSearchParams(window.location.search);
         currentNationalId = urlParams.get('nid');
-        // TODO: گرفتن درصد سهام کاربر از سرور و نمایش آن
+        document.getElementById('dashboard_link').href = `dashboard.html?nid=${currentNationalId}`;
+        
+        // TODO: در مرحله بعد، باید درصد سهام کاربر را از سرور بگیریم
+        // و همچنین اعتبارسنجی کنیم که کاربر بیشتر از سهم خود نفروشد.
     };
-
 </script>
 </body>
 </html>
