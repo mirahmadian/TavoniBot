@@ -77,11 +77,22 @@ def get_member_data():
     national_id = request.args.get('nid')
     if not national_id: return jsonify({"error": "کد ملی ارسال نشده است."}), 400
     try:
-        response = supabase.table('member').select("first_name, last_name, share_percentage").eq('nationalcode', national_id).execute()
-        if response.data:
-            return jsonify(response.data[0])
-        else:
+        member_res = supabase.table('member').select("first_name, last_name, share_percentage").eq('nationalcode', national_id).execute()
+        if not member_res.data:
             return jsonify({"error": "کاربری با این کد ملی یافت نشد."}), 404
+        
+        member_data = member_res.data[0]
+        total_shares = member_data.get('share_percentage', 100)
+
+        offers_res = supabase.table('sale_offers').select('percentage_to_sell').eq('seller_national_id', national_id).eq('status', 'active').execute()
+        
+        listed_percentage = sum(offer['percentage_to_sell'] for offer in offers_res.data)
+        
+        available_percentage = total_shares - listed_percentage
+        member_data['available_share_percentage'] = available_percentage
+
+        return jsonify(member_data)
+        
     except Exception as e:
         print(f"Dashboard Data Error: {e}")
         return jsonify({"error": "خطا در دریافت اطلاعات."}), 500
@@ -137,15 +148,30 @@ def handle_sale_offers():
     if request.method == 'POST':
         data = request.get_json(silent=True)
         if not data: return jsonify({"error": "درخواست نامعتبر است."}), 400
+        
         national_id = data.get('national_id')
-        percentage = data.get('percentage_to_sell')
+        percentage_to_sell = data.get('percentage_to_sell')
         price = data.get('price')
-        if not all([national_id, percentage, price]):
+
+        if not all([national_id, percentage_to_sell, price]):
             return jsonify({"error": "اطلاعات ارسالی ناقص است."}), 400
+
         try:
+            member_res = supabase.table('member').select("share_percentage").eq('nationalcode', national_id).execute()
+            if not member_res.data:
+                return jsonify({"error": "کاربر فروشنده یافت نشد."}), 404
+            total_shares = member_res.data[0].get('share_percentage', 100)
+
+            offers_res = supabase.table('sale_offers').select('percentage_to_sell').eq('seller_national_id', national_id).eq('status', 'active').execute()
+            already_listed_percentage = sum(offer['percentage_to_sell'] for offer in offers_res.data)
+
+            if (already_listed_percentage + percentage_to_sell) > total_shares:
+                remaining = total_shares - already_listed_percentage
+                return jsonify({"error": f"شما سهم کافی برای فروش ندارید. تنها می‌توانید {remaining}% دیگر از سهم خود را برای فروش بگذارید."}), 400
+
             supabase.table('sale_offers').insert({
                 "seller_national_id": national_id,
-                "percentage_to_sell": percentage,
+                "percentage_to_sell": percentage_to_sell,
                 "price": price,
                 "status": "active"
             }).execute()
@@ -156,10 +182,7 @@ def handle_sale_offers():
     
     if request.method == 'GET':
         try:
-            response = supabase.table('sale_offers').select(
-                '*, member:seller_national_id ( first_name, last_name )'
-            ).eq('status', 'active').execute()
-
+            response = supabase.table('sale_offers').select('*, member:seller_national_id ( first_name, last_name )').eq('status', 'active').execute()
             if response.data:
                 offers_with_normalized_price = []
                 for offer in response.data:
