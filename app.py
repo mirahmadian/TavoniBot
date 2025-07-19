@@ -42,14 +42,20 @@ linking_tokens = {}
 # --- مسیرهای اصلی ---
 @app.route('/')
 def serve_index(): return send_from_directory(app.static_folder, 'index.html')
+
 @app.route('/profile.html')
 def serve_profile(): return send_from_directory(app.static_folder, 'profile.html')
+
 @app.route('/dashboard.html')
 def serve_dashboard(): return send_from_directory(app.static_folder, 'dashboard.html')
+
 @app.route('/sell_share.html')
-def serve_sell_share(): return send_from_directory(app.static_folder, 'sell_share.html')
+def serve_sell_share():
+    return send_from_directory(app.static_folder, 'sell_share.html')
+
 @app.route('/view_offers.html')
-def serve_view_offers(): return send_from_directory(app.static_folder, 'view_offers.html')
+def serve_view_offers():
+    return send_from_directory(app.static_folder, 'view_offers.html')
 
 # --- API Endpoints ---
 @app.route('/get-user-profile')
@@ -126,26 +132,51 @@ def update_user_profile():
         print(f"Profile Update Error: {e}")
         return jsonify({"error": "خطا در ذخیره‌سازی اطلاعات."}), 500
 
-@app.route('/api/sale-offers', methods=['POST'])
-def create_sale_offer():
-    data = request.get_json(silent=True)
-    if not data: return jsonify({"error": "درخواست نامعتبر است."}), 400
-    national_id = data.get('national_id')
-    percentage = data.get('percentage_to_sell')
-    price = data.get('price')
-    if not all([national_id, percentage, price]):
-        return jsonify({"error": "اطلاعات ارسالی ناقص است."}), 400
-    try:
-        supabase.table('sale_offers').insert({
-            "seller_national_id": national_id,
-            "percentage_to_sell": percentage,
-            "price": price,
-            "status": "active"
-        }).execute()
-        return jsonify({"message": "پیشنهاد شما با موفقیت ثبت شد."}), 201
-    except Exception as e:
-        print(f"Create Offer DB Error: {e}")
-        return jsonify({"error": "خطا در ثبت پیشنهاد در پایگاه داده."}), 500
+@app.route('/api/sale-offers', methods=['GET', 'POST'])
+def handle_sale_offers():
+    if request.method == 'POST':
+        data = request.get_json(silent=True)
+        if not data: return jsonify({"error": "درخواست نامعتبر است."}), 400
+        national_id = data.get('national_id')
+        percentage = data.get('percentage_to_sell')
+        price = data.get('price')
+        if not all([national_id, percentage, price]):
+            return jsonify({"error": "اطلاعات ارسالی ناقص است."}), 400
+        try:
+            supabase.table('sale_offers').insert({
+                "seller_national_id": national_id,
+                "percentage_to_sell": percentage,
+                "price": price,
+                "status": "active"
+            }).execute()
+            return jsonify({"message": "پیشنهاد شما با موفقیت ثبت شد."}), 201
+        except Exception as e:
+            print(f"Create Offer DB Error: {e}")
+            return jsonify({"error": "خطا در ثبت پیشنهاد در پایگاه داده."}), 500
+    
+    if request.method == 'GET':
+        try:
+            response = supabase.table('sale_offers').select(
+                '*, member:seller_national_id ( first_name, last_name )'
+            ).eq('status', 'active').execute()
+
+            if response.data:
+                offers_with_normalized_price = []
+                for offer in response.data:
+                    if offer['percentage_to_sell'] > 0:
+                        normalized_price = (offer['price'] / offer['percentage_to_sell']) * 100
+                        offer['normalized_price'] = int(normalized_price)
+                    else:
+                        offer['normalized_price'] = 0
+                    offers_with_normalized_price.append(offer)
+                
+                sorted_offers = sorted(offers_with_normalized_price, key=lambda x: x['normalized_price'])
+                return jsonify(sorted_offers)
+            else:
+                return jsonify([])
+        except Exception as e:
+            print(f"Get Offers DB Error: {e}")
+            return jsonify({"error": "خطا در دریافت لیست پیشنهادها."}), 500
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
@@ -157,11 +188,9 @@ def webhook():
     
     if "contact" in message:
         phone_from_bale = message['contact']['phone_number']
-        
         if phone_from_bale.startswith('98'): normalized_phone = '+' + phone_from_bale
         elif phone_from_bale.startswith('0'): normalized_phone = '+98' + phone_from_bale[1:]
         else: normalized_phone = phone_from_bale
-
         session_data = otp_storage.get(str(chat_id))
         if not session_data or "national_id" not in session_data:
             requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": chat_id, "text": "فرآیند ثبت‌نام شما یافت نشد."})
@@ -172,10 +201,8 @@ def webhook():
             if res.data:
                 requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": chat_id, "text": "این شماره موبایل قبلاً برای عضو دیگری ثبت شده است."})
                 return "ok", 200
-            
             supabase.table('member').update({"phonenumber": normalized_phone, "chat_id": str(chat_id)}).eq('nationalcode', national_id).execute()
             del otp_storage[str(chat_id)]
-            
             otp_code = random.randint(10000, 99999)
             otp_storage[national_id] = {"code": str(otp_code), "timestamp": time.time()}
             otp_message = (f"ثبت‌نام شما با موفقیت انجام شد.\n\nکد ورود شما به سامانه تعاونی:\n`{otp_code}`\n\n_(برای کپی کردن، کد بالا را لمس کنید)_\n\nاین کد تا ۲ دقیقه دیگر معتبر است.\n*لطفاً این کد را در اختیار دیگران قرار ندهید.*")
@@ -189,14 +216,10 @@ def webhook():
         if token in linking_tokens:
             national_id = linking_tokens.pop(token)
             otp_storage[str(chat_id)] = {"national_id": national_id}
-            # --- بخش اصلاح شده ---
-            # رشته متنی که ناقص بود، کامل شد
             payload = {
-                "chat_id": chat_id,
-                "text": "برای تکمیل ثبت‌نام اولیه، لطفاً روی دکمه زیر کلیک کرده و شماره موبایل خود را با ما به اشتراک بگذارید.",
+                "chat_id": chat_id, "text": "برای تکمیل ثبت‌نام اولیه، لطفاً روی دکمه زیر کلیک کرده و شماره موبایل خود را با ما به اشتراک بگذارید.",
                 "reply_markup": {"keyboard": [[{"text": "🔒 اشتراک‌گذاری شماره موبایل", "request_contact": True}]], "resize_keyboard": True, "one_time_keyboard": True}
             }
-            # --- پایان بخش اصلاح شده ---
             requests.post(f"{BALE_API_URL}/sendMessage", json=payload)
     return "ok", 200
 

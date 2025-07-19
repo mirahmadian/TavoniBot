@@ -15,13 +15,84 @@
     <div class="max-w-4xl mx-auto">
         <div class="flex justify-between items-center mb-8">
             <h1 class="text-2xl font-bold text-gray-800">لیست پیشنهادات فروش سهام</h1>
-            <a href="/dashboard.html" class="btn btn-sm btn-outline">بازگشت به داشبورد</a>
+            <a id="dashboard_link" href="#" class="btn btn-sm btn-outline">بازگشت به داشبورد</a>
         </div>
         
-        <div id="offers_loading" class="text-center">در حال بارگذاری لیست...</div>
+        <div id="offers_loading" class="text-center">
+            <span class="loading loading-lg loading-spinner"></span>
+            <p>در حال بارگذاری لیست...</p>
+        </div>
+        
+        <div id="no_offers_message" class="text-center hidden">
+            <p>در حال حاضر هیچ پیشنهاد فعالی برای فروش وجود ندارد.</p>
+        </div>
         
         <div id="offers_container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             </div>
     </div>
-    </body>
+
+<script>
+    const API_BACKEND_URL = "https://tavonibot.onrender.com";
+    let currentNationalId = '';
+
+    window.onload = function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        currentNationalId = urlParams.get('nid');
+        document.getElementById('dashboard_link').href = `dashboard.html?nid=${currentNationalId}`;
+        
+        fetchOffers();
+    };
+
+    async function fetchOffers() {
+        const loadingEl = document.getElementById('offers_loading');
+        const containerEl = document.getElementById('offers_container');
+        const noOffersEl = document.getElementById('no_offers_message');
+
+        try {
+            const response = await fetch(`${API_BACKEND_URL}/api/sale-offers`);
+            const offers = await response.json();
+
+            loadingEl.classList.add('hidden');
+
+            if (response.ok) {
+                if (offers.length === 0) {
+                    noOffersEl.classList.remove('hidden');
+                    return;
+                }
+
+                containerEl.innerHTML = ''; // خالی کردن کانتینر
+                offers.forEach(offer => {
+                    // برای هر پیشنهاد، یک کارت HTML می‌سازیم
+                    const sellerName = `${offer.member.first_name} ${offer.member.last_name}`;
+                    const priceFormatted = offer.price.toLocaleString('fa-IR');
+                    const normalizedPriceFormatted = offer.normalized_price.toLocaleString('fa-IR');
+
+                    const cardHTML = `
+                        <div class="card bg-base-100 shadow-md">
+                            <div class="card-body">
+                                <h2 class="card-title text-lg">${sellerName}</h2>
+                                <p><strong>درصد سهام:</strong> ${offer.percentage_to_sell}%</p>
+                                <p><strong>قیمت پیشنهادی:</strong> ${priceFormatted} تومان</p>
+                                <p class="text-sm text-gray-500 mt-2">قیمت معادل ۱۰۰٪: ${normalizedPriceFormatted} تومان</p>
+                                <div class="card-actions justify-end mt-4">
+                                    <button class="btn btn-primary btn-sm">مشاهده و درخواست خرید</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    containerEl.innerHTML += cardHTML;
+                });
+
+            } else {
+                noOffersEl.textContent = offers.error || 'خطا در بارگذاری اطلاعات.';
+                noOffersEl.classList.remove('hidden');
+            }
+        } catch (error) {
+            loadingEl.classList.add('hidden');
+            noOffersEl.textContent = 'خطا در ارتباط با سرور.';
+            noOffersEl.classList.remove('hidden');
+        }
+    }
+</script>
+</body>
 </html>
