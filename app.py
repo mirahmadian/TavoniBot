@@ -47,6 +47,11 @@ def serve_profile(): return send_from_directory(app.static_folder, 'profile.html
 @app.route('/dashboard.html')
 def serve_dashboard(): return send_from_directory(app.static_folder, 'dashboard.html')
 
+# --- مسیر جدید برای بیدار نگه داشتن سرور ---
+@app.route('/health-check')
+def health_check():
+    return jsonify({"status": "alive"}), 200
+
 # --- API Endpoints ---
 @app.route('/get-user-profile')
 def get_user_profile():
@@ -85,21 +90,14 @@ def start_login():
     national_id = data.get('national_id')
 
     try:
-        # --- بخش اصلاح شده ---
-        # ما حالا share_percentage را هم می‌خوانیم
         response = supabase.table('member').select("phonenumber, chat_id, share_percentage").eq('nationalcode', national_id).execute()
-        # --- پایان بخش اصلاح شده ---
-
         if not response.data:
             return jsonify({"error": "کد ملی وارد شده در سامانه ثبت نشده است."}), 404
         
         user = response.data[0]
-
-        # --- منطق جدید: مقداردهی خودکار سهم ---
         if user.get('share_percentage') is None:
             print(f"User {national_id} has NULL share_percentage. Setting to 100.")
             supabase.table('member').update({"share_percentage": 100}).eq('nationalcode', national_id).execute()
-        # --- پایان منطق جدید ---
 
         if user.get('phonenumber') and user.get('chat_id'):
             otp_code = random.randint(10000, 99999)
