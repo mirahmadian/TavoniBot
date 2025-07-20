@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>جزئیات پیشنهاد - سامانه تعاونی</title>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.20/dist/full.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/@fontsource/vazirmatn@latest/index.css" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: Vazirmatn, sans-serif; background-color: #f0f2f5; }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-2xl mx-auto">
+        <div id="loading" class="text-center">
+            <span class="loading loading-lg loading-spinner"></span>
+            <p>در حال بارگذاری جزئیات...</p>
+        </div>
+
+        <div id="offer_content" class="hidden bg-white p-8 rounded-2xl shadow-md">
+            <div class="flex justify-between items-center mb-6 border-b pb-4">
+                <h1 class="text-2xl font-bold">جزئیات پیشنهاد فروش سهام</h1>
+                <a id="back_link" href="#" class="btn btn-sm btn-ghost">بازگشت به لیست</a>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <h2 class="text-xl font-semibold mb-2">اطلاعات فروشنده</h2>
+                    <p><strong>نام فروشنده:</strong> <span id="seller_name"></span></p>
+                </div>
+                <div>
+                    <h2 class="text-xl font-semibold mb-2">جزئیات پیشنهاد</h2>
+                    <p><strong>درصد سهام برای فروش:</strong> <span id="percentage"></span>%</p>
+                    <p><strong>قیمت پیشنهادی:</strong> <span id="price"></span> تومان</p>
+                    <p class="text-sm text-gray-600 mt-1"><strong>قیمت معادل ۱۰۰٪:</strong> <span id="normalized_price"></span> تومان</p>
+                </div>
+            </div>
+            
+            <div class="mt-8">
+                <button class="btn btn-primary w-full">ارسال درخواست نهایی خرید</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const API_BACKEND_URL = "https://tavonibot.onrender.com";
+    let currentNationalId = '';
+    let offerId = '';
+
+    window.onload = function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        currentNationalId = urlParams.get('nid');
+        offerId = urlParams.get('id');
+
+        document.getElementById('back_link').href = `view_offers.html?nid=${currentNationalId}`;
+        
+        if (!offerId) {
+            document.getElementById('loading').textContent = 'خطا: شناسه پیشنهاد یافت نشد.';
+            return;
+        }
+        
+        fetchOfferDetails();
+    };
+
+    async function fetchOfferDetails() {
+        const loadingEl = document.getElementById('loading');
+        const contentEl = document.getElementById('offer_content');
+
+        try {
+            const response = await fetch(`${API_BACKEND_URL}/api/sale-offers/${offerId}`);
+            const offer = await response.json();
+
+            if (response.ok) {
+                document.getElementById('seller_name').textContent = `${offer.member.first_name} ${offer.member.last_name}`;
+                document.getElementById('percentage').textContent = offer.percentage_to_sell;
+                document.getElementById('price').textContent = offer.price.toLocaleString('fa-IR');
+                document.getElementById('normalized_price').textContent = offer.normalized_price.toLocaleString('fa-IR');
+
+                loadingEl.classList.add('hidden');
+                contentEl.classList.remove('hidden');
+            } else {
+                loadingEl.textContent = offer.error || 'خطا در بارگذاری جزئیات.';
+            }
+        } catch (error) {
+            loadingEl.textContent = 'خطا در ارتباط با سرور.';
+        }
+    }
+</script>
+</body>
+</html>
