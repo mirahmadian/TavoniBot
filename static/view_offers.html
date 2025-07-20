@@ -60,36 +60,34 @@
                     return;
                 }
 
-                // --- منطق جدید برای تحلیل قیمت‌ها ---
                 const prices = offers.map(o => o.normalized_price);
                 const averagePrice = prices.reduce((a, b) => a + b, 0) / prices.length;
                 const stdDev = Math.sqrt(prices.map(x => Math.pow(x - averagePrice, 2)).reduce((a, b) => a + b, 0) / prices.length);
-                // آستانه برای تشخیص قیمت نامتعارف (مثلاً ۲ برابر انحراف معیار)
                 const outlierThreshold = averagePrice + (2 * stdDev);
                 const cheapThreshold = averagePrice - (0.5 * stdDev);
-                // --- پایان منطق جدید ---
 
                 containerEl.innerHTML = '';
                 offers.forEach(offer => {
-                    if (offer.seller_national_id === currentNationalId) return;
+                    // --- حالت تست: این بخش برای تست شما غیرفعال شده است ---
+                    // if (offer.seller_national_id === currentNationalId) {
+                    //     return;
+                    // }
                     
                     const sellerName = `${offer.member.first_name || ''} ${offer.member.last_name || ''}`;
                     const priceFormatted = offer.price.toLocaleString('fa-IR');
                     const normalizedPriceFormatted = offer.normalized_price.toLocaleString('fa-IR');
 
-                    // --- منطق جدید برای رنگ‌بندی و هشدار ---
                     let priceColorClass = '';
                     if (offer.normalized_price < cheapThreshold) {
-                        priceColorClass = 'text-success'; // سبز برای ارزان
+                        priceColorClass = 'text-success';
                     } else if (offer.normalized_price > outlierThreshold) {
-                        priceColorClass = 'text-error'; // قرمز برای خیلی گران
+                        priceColorClass = 'text-error';
                     }
 
                     let outlierWarning = '';
-                    if (offer.normalized_price > outlierThreshold || offer.price < 1000000) { // یک حداقل قیمت هم در نظر می‌گیریم
+                    if (offer.normalized_price > outlierThreshold || offer.price < 1000000) {
                         outlierWarning = `<p class="text-xs text-warning mt-1">توجه: قیمت خارج از محدوده متعارف است.</p>`;
                     }
-                    // --- پایان منطق جدید ---
 
                     const cardHTML = `
                         <div class="card bg-base-100 shadow-md">
@@ -109,7 +107,6 @@
                 });
                 
                 if(containerEl.innerHTML === ''){
-                    noOffersEl.textContent = "هیچ پیشنهادی از سایر کاربران برای نمایش وجود ندارد.";
                     noOffersEl.classList.remove('hidden');
                 }
 
