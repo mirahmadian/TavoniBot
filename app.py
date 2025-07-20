@@ -57,9 +57,9 @@ def serve_sell_share():
 def serve_view_offers():
     return send_from_directory(app.static_folder, 'view_offers.html')
 
-@app.route('/health-check')
-def health_check():
-    return '', 204 # ارسال پاسخ خالی با کد وضعیت "No Content"
+@app.route('/offer_detail.html')
+def serve_offer_detail():
+    return send_from_directory(app.static_folder, 'offer_detail.html')
 
 # --- API Endpoints ---
 @app.route('/get-user-profile')
@@ -162,8 +162,7 @@ def handle_sale_offers():
 
         try:
             member_res = supabase.table('member').select("share_percentage").eq('nationalcode', national_id).execute()
-            if not member_res.data:
-                return jsonify({"error": "کاربر فروشنده یافت نشد."}), 404
+            if not member_res.data: return jsonify({"error": "کاربر فروشنده یافت نشد."}), 404
             total_shares = member_res.data[0].get('share_percentage', 100)
 
             offers_res = supabase.table('sale_offers').select('percentage_to_sell').eq('seller_national_id', national_id).eq('status', 'active').execute()
@@ -173,12 +172,7 @@ def handle_sale_offers():
                 remaining = total_shares - already_listed_percentage
                 return jsonify({"error": f"شما سهم کافی برای فروش ندارید. تنها می‌توانید {remaining}% دیگر از سهم خود را برای فروش بگذارید."}), 400
 
-            supabase.table('sale_offers').insert({
-                "seller_national_id": national_id,
-                "percentage_to_sell": percentage_to_sell,
-                "price": price,
-                "status": "active"
-            }).execute()
+            supabase.table('sale_offers').insert({ "seller_national_id": national_id, "percentage_to_sell": percentage_to_sell, "price": price, "status": "active" }).execute()
             return jsonify({"message": "پیشنهاد شما با موفقیت ثبت شد."}), 201
         except Exception as e:
             print(f"Create Offer DB Error: {e}")
@@ -188,22 +182,35 @@ def handle_sale_offers():
         try:
             response = supabase.table('sale_offers').select('*, member:seller_national_id ( first_name, last_name )').eq('status', 'active').execute()
             if response.data:
-                offers_with_normalized_price = []
+                offers = []
                 for offer in response.data:
                     if offer['percentage_to_sell'] > 0:
-                        normalized_price = (offer['price'] / offer['percentage_to_sell']) * 100
-                        offer['normalized_price'] = int(normalized_price)
-                    else:
-                        offer['normalized_price'] = 0
-                    offers_with_normalized_price.append(offer)
+                        offer['normalized_price'] = int((offer['price'] / offer['percentage_to_sell']) * 100)
+                    else: offer['normalized_price'] = 0
+                    offers.append(offer)
                 
-                sorted_offers = sorted(offers_with_normalized_price, key=lambda x: x['normalized_price'])
+                sorted_offers = sorted(offers, key=lambda x: x['normalized_price'])
                 return jsonify(sorted_offers)
-            else:
-                return jsonify([])
+            else: return jsonify([])
         except Exception as e:
             print(f"Get Offers DB Error: {e}")
             return jsonify({"error": "خطا در دریافت لیست پیشنهادها."}), 500
+
+@app.route('/api/sale-offers/<int:offer_id>')
+def get_offer_details(offer_id):
+    try:
+        response = supabase.table('sale_offers').select('*, member:seller_national_id ( first_name, last_name )').eq('id', offer_id).single().execute()
+        if response.data:
+            offer = response.data
+            if offer['percentage_to_sell'] > 0:
+                offer['normalized_price'] = int((offer['price'] / offer['percentage_to_sell']) * 100)
+            else: offer['normalized_price'] = 0
+            return jsonify(offer)
+        else:
+            return jsonify({"error": "پیشنهاد مورد نظر یافت نشد."}), 404
+    except Exception as e:
+        print(f"Get Offer Detail Error: {e}")
+        return jsonify({"error": "خطا در دریافت اطلاعات پیشنهاد."}), 500
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
