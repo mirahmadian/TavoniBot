@@ -61,6 +61,10 @@ def serve_view_offers():
 def serve_offer_detail():
     return send_from_directory(app.static_folder, 'offer_detail.html')
 
+@app.route('/health-check')
+def health_check():
+    return '', 204
+
 # --- API Endpoints ---
 @app.route('/get-user-profile')
 def get_user_profile():
@@ -87,16 +91,11 @@ def get_member_data():
         
         member_data = member_res.data[0]
         total_shares = member_data.get('share_percentage', 100)
-
         offers_res = supabase.table('sale_offers').select('percentage_to_sell').eq('seller_national_id', national_id).eq('status', 'active').execute()
-        
         listed_percentage = sum(offer['percentage_to_sell'] for offer in offers_res.data)
-        
         available_percentage = total_shares - listed_percentage
         member_data['available_share_percentage'] = available_percentage
-
         return jsonify(member_data)
-        
     except Exception as e:
         print(f"Dashboard Data Error: {e}")
         return jsonify({"error": "خطا در دریافت اطلاعات."}), 500
@@ -139,7 +138,11 @@ def update_user_profile():
     national_id = data.get('national_id')
     postal_code = data.get('postal_code')
     address = data.get('address')
-    if not national_id: return jsonify({"error": "کد ملی برای به‌روزرسانی پروفایل الزامی است."}), 400
+    
+    # اعتبارسنجی جدید سمت سرور
+    if not all([national_id, postal_code, address]) or postal_code == '' or address == '':
+        return jsonify({"error": "تمام فیلدها (کد ملی، کد پستی، آدرس) الزامی هستند."}), 400
+
     try:
         supabase.table('member').update({"postal_code": postal_code, "address": address}).eq('nationalcode', national_id).execute()
         return jsonify({"message": "اطلاعات شما با موفقیت ذخیره شد."})
@@ -152,26 +155,20 @@ def handle_sale_offers():
     if request.method == 'POST':
         data = request.get_json(silent=True)
         if not data: return jsonify({"error": "درخواست نامعتبر است."}), 400
-        
         national_id = data.get('national_id')
         percentage_to_sell = data.get('percentage_to_sell')
         price = data.get('price')
-
         if not all([national_id, percentage_to_sell, price]):
             return jsonify({"error": "اطلاعات ارسالی ناقص است."}), 400
-
         try:
             member_res = supabase.table('member').select("share_percentage").eq('nationalcode', national_id).execute()
             if not member_res.data: return jsonify({"error": "کاربر فروشنده یافت نشد."}), 404
             total_shares = member_res.data[0].get('share_percentage', 100)
-
             offers_res = supabase.table('sale_offers').select('percentage_to_sell').eq('seller_national_id', national_id).eq('status', 'active').execute()
             already_listed_percentage = sum(offer['percentage_to_sell'] for offer in offers_res.data)
-
             if (already_listed_percentage + percentage_to_sell) > total_shares:
                 remaining = total_shares - already_listed_percentage
                 return jsonify({"error": f"شما سهم کافی برای فروش ندارید. تنها می‌توانید {remaining}% دیگر از سهم خود را برای فروش بگذارید."}), 400
-
             supabase.table('sale_offers').insert({ "seller_national_id": national_id, "percentage_to_sell": percentage_to_sell, "price": price, "status": "active" }).execute()
             return jsonify({"message": "پیشنهاد شما با موفقیت ثبت شد."}), 201
         except Exception as e:
@@ -188,7 +185,6 @@ def handle_sale_offers():
                         offer['normalized_price'] = int((offer['price'] / offer['percentage_to_sell']) * 100)
                     else: offer['normalized_price'] = 0
                     offers.append(offer)
-                
                 sorted_offers = sorted(offers, key=lambda x: x['normalized_price'])
                 return jsonify(sorted_offers)
             else: return jsonify([])
@@ -219,7 +215,6 @@ def webhook():
     message = data.get("message", {})
     chat_id = message.get("chat", {}).get("id")
     if not chat_id: return "ok", 200
-    
     if "contact" in message:
         phone_from_bale = message['contact']['phone_number']
         if phone_from_bale.startswith('98'): normalized_phone = '+' + phone_from_bale

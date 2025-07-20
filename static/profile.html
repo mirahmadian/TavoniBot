@@ -33,11 +33,11 @@
             </div>
             <hr class="my-6">
             <div class="mb-4">
-                <label class="block mb-2 font-semibold">کد پستی:</label>
+                <label class="label"><span class="label-text font-semibold">کد پستی:</span></label>
                 <input type="text" id="postalCode" class="input input-bordered w-full" placeholder="کد پستی ۱۰ رقمی خود را وارد کنید">
             </div>
             <div class="mb-4">
-                <label class="block mb-2 font-semibold">آدرس:</label>
+                <label class="label"><span class="label-text font-semibold">آدرس:</span></label>
                 <textarea id="address" class="textarea textarea-bordered w-full" rows="3" placeholder="آدرس دقیق محل سکونت"></textarea>
             </div>
             <button id="saveBtn" onclick="updateProfile()" class="btn btn-primary w-full mt-4">ذخیره اطلاعات و ورود به داشبورد</button>
@@ -102,6 +102,14 @@
     async function updateProfile() {
         const postalCode = document.getElementById('postalCode').value.trim();
         const address = document.getElementById('address').value.trim();
+        
+        // --- اعتبارسنجی جدید ---
+        if (address === '' || postalCode === '') {
+            showModal('خطا', 'لطفاً فیلدهای کد پستی و آدرس را به طور کامل پر کنید.', false);
+            return;
+        }
+        // --- پایان اعتبارسنجی ---
+
         const saveBtn = document.getElementById('saveBtn');
         saveBtn.disabled = true;
         saveBtn.textContent = 'در حال ذخیره‌سازی...';
@@ -117,15 +125,11 @@
             });
             const result = await response.json();
             if (response.ok) {
-                // --- بخش اصلاح شده ---
-                // نمایش پیام موفقیت
                 showModal('موفقیت', result.message, true);
-                // منتظر ماندن برای بستن پاپ‌آپ و سپس هدایت به داشبورد
                 const modal = document.getElementById('message_modal');
                 modal.addEventListener('close', () => {
                     window.location.href = `dashboard.html?nid=${currentNationalId}`;
                 }, { once: true });
-                // --- پایان بخش اصلاح شده ---
             } else {
                 showModal('خطا', result.error, false);
             }
