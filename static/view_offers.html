@@ -13,9 +13,21 @@
 </head>
 <body class="p-4 md:p-8">
     <div class="max-w-4xl mx-auto">
-        <div class="flex justify-between items-center mb-8">
+        <div class="flex justify-between items-center mb-4">
             <h1 class="text-2xl font-bold text-gray-800">لیست پیشنهادات فروش سهام</h1>
             <a id="dashboard_link" href="#" class="btn btn-sm btn-outline">بازگشت به داشبورد</a>
+        </div>
+        
+        <div class="flex justify-end items-center mb-4 gap-2">
+            <span class="text-sm">نحوه نمایش:</span>
+            <div class="join">
+                <button id="grid_view_btn" class="btn btn-sm join-item btn-active" onclick="setView('grid')">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
+                </button>
+                <button id="list_view_btn" class="btn btn-sm join-item" onclick="setView('list')">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd" /></svg>
+                </button>
+            </div>
         </div>
         
         <div id="offers_loading" class="text-center">
@@ -23,9 +35,7 @@
             <p>در حال بارگذاری لیست...</p>
         </div>
         
-        <div id="no_offers_message" class="text-center hidden">
-            <p>در حال حاضر هیچ پیشنهاد فعالی برای فروش وجود ندارد.</p>
-        </div>
+        <div id="no_offers_message" class="text-center hidden"><p>...</p></div>
         
         <div id="offers_container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             </div>
@@ -39,9 +49,25 @@
         const urlParams = new URLSearchParams(window.location.search);
         currentNationalId = urlParams.get('nid');
         document.getElementById('dashboard_link').href = `dashboard.html?nid=${currentNationalId}`;
-        
         fetchOffers();
     };
+
+    // تابع جدید برای تغییر چیدمان
+    function setView(viewType) {
+        const container = document.getElementById('offers_container');
+        const gridBtn = document.getElementById('grid_view_btn');
+        const listBtn = document.getElementById('list_view_btn');
+
+        if (viewType === 'grid') {
+            container.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6';
+            gridBtn.classList.add('btn-active');
+            listBtn.classList.remove('btn-active');
+        } else {
+            container.className = 'flex flex-col gap-4';
+            listBtn.classList.add('btn-active');
+            gridBtn.classList.remove('btn-active');
+        }
+    }
 
     async function fetchOffers() {
         const loadingEl = document.getElementById('offers_loading');
@@ -51,38 +77,33 @@
         try {
             const response = await fetch(`${API_BACKEND_URL}/api/sale-offers`);
             const offers = await response.json();
-
             loadingEl.classList.add('hidden');
 
             if (response.ok) {
-                if (offers.length === 0) {
+                const visibleOffers = offers.filter(offer => offer.seller_national_id !== currentNationalId);
+                
+                if (visibleOffers.length === 0) {
+                    noOffersEl.querySelector('p').textContent = "در حال حاضر هیچ پیشنهاد فعالی از سایر کاربران برای فروش وجود ندارد.";
                     noOffersEl.classList.remove('hidden');
                     return;
                 }
 
-                const prices = offers.map(o => o.normalized_price);
+                // منطق تحلیل قیمت‌ها (با آستانه حساس‌تر)
+                const prices = visibleOffers.map(o => o.normalized_price);
                 const averagePrice = prices.reduce((a, b) => a + b, 0) / prices.length;
                 const stdDev = Math.sqrt(prices.map(x => Math.pow(x - averagePrice, 2)).reduce((a, b) => a + b, 0) / prices.length);
-                const outlierThreshold = averagePrice + (2 * stdDev);
+                const outlierThreshold = averagePrice + (1.5 * stdDev); // آستانه حساس‌تر (۱.۵ برابر انحراف معیار)
                 const cheapThreshold = averagePrice - (0.5 * stdDev);
 
                 containerEl.innerHTML = '';
-                offers.forEach(offer => {
-                    // --- حالت تست: این بخش برای تست شما غیرفعال شده است ---
-                    // if (offer.seller_national_id === currentNationalId) {
-                    //     return;
-                    // }
-                    
+                visibleOffers.forEach(offer => {
                     const sellerName = `${offer.member.first_name || ''} ${offer.member.last_name || ''}`;
                     const priceFormatted = offer.price.toLocaleString('fa-IR');
                     const normalizedPriceFormatted = offer.normalized_price.toLocaleString('fa-IR');
 
                     let priceColorClass = '';
-                    if (offer.normalized_price < cheapThreshold) {
-                        priceColorClass = 'text-success';
-                    } else if (offer.normalized_price > outlierThreshold) {
-                        priceColorClass = 'text-error';
-                    }
+                    if (offer.normalized_price < cheapThreshold) priceColorClass = 'text-success';
+                    else if (offer.normalized_price > outlierThreshold) priceColorClass = 'text-error';
 
                     let outlierWarning = '';
                     if (offer.normalized_price > outlierThreshold || offer.price < 1000000) {
@@ -90,9 +111,10 @@
                     }
 
                     const cardHTML = `
-                        <div class="card bg-base-100 shadow-md">
+                        <div class="card bg-base-100 shadow-md w-full">
                             <div class="card-body">
                                 <h2 class="card-title text-lg">${sellerName}</h2>
+                                <div class="divider my-1"></div>
                                 <p><strong>درصد سهام:</strong> ${offer.percentage_to_sell}%</p>
                                 <p><strong>قیمت پیشنهادی:</strong> <span class="${priceColorClass}">${priceFormatted} تومان</span></p>
                                 <p class="text-sm text-gray-500 mt-2">قیمت معادل ۱۰۰٪: <span class="font-bold ${priceColorClass}">${normalizedPriceFormatted} تومان</span></p>
@@ -105,18 +127,13 @@
                     `;
                     containerEl.innerHTML += cardHTML;
                 });
-                
-                if(containerEl.innerHTML === ''){
-                    noOffersEl.classList.remove('hidden');
-                }
-
             } else {
-                noOffersEl.textContent = offers.error || 'خطا در بارگذاری اطلاعات.';
+                noOffersEl.querySelector('p').textContent = offers.error || 'خطا در بارگذاری اطلاعات.';
                 noOffersEl.classList.remove('hidden');
             }
         } catch (error) {
             loadingEl.classList.add('hidden');
-            noOffersEl.textContent = 'خطا در ارتباط با سرور.';
+            noOffersEl.querySelector('p').textContent = 'خطا در ارتباط با سرور.';
             noOffersEl.classList.remove('hidden');
         }
     }
