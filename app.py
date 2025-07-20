@@ -42,18 +42,28 @@ linking_tokens = {}
 # --- مسیرهای اصلی ---
 @app.route('/')
 def serve_index(): return send_from_directory(app.static_folder, 'index.html')
+
 @app.route('/profile.html')
 def serve_profile(): return send_from_directory(app.static_folder, 'profile.html')
+
 @app.route('/dashboard.html')
 def serve_dashboard(): return send_from_directory(app.static_folder, 'dashboard.html')
+
 @app.route('/sell_share.html')
-def serve_sell_share(): return send_from_directory(app.static_folder, 'sell_share.html')
+def serve_sell_share():
+    return send_from_directory(app.static_folder, 'sell_share.html')
+
 @app.route('/view_offers.html')
-def serve_view_offers(): return send_from_directory(app.static_folder, 'view_offers.html')
+def serve_view_offers():
+    return send_from_directory(app.static_folder, 'view_offers.html')
+
 @app.route('/offer_detail.html')
-def serve_offer_detail(): return send_from_directory(app.static_folder, 'offer_detail.html')
+def serve_offer_detail():
+    return send_from_directory(app.static_folder, 'offer_detail.html')
+
 @app.route('/health-check')
-def health_check(): return '', 204
+def health_check():
+    return '', 204
 
 # --- API Endpoints ---
 @app.route('/get-user-profile')
@@ -78,6 +88,7 @@ def get_member_data():
         member_res = supabase.table('member').select("first_name, last_name, share_percentage").eq('nationalcode', national_id).execute()
         if not member_res.data:
             return jsonify({"error": "کاربری با این کد ملی یافت نشد."}), 404
+        
         member_data = member_res.data[0]
         total_shares = member_data.get('share_percentage', 100)
         offers_res = supabase.table('sale_offers').select('percentage_to_sell').eq('seller_national_id', national_id).eq('status', 'active').execute()
@@ -94,14 +105,18 @@ def start_login():
     data = request.get_json(silent=True)
     if not data or not data.get('national_id'):
         return jsonify({"error": "کد ملی الزامی است"}), 400
+    
     national_id = data.get('national_id')
+
     try:
         response = supabase.table('member').select("phonenumber, chat_id, share_percentage").eq('nationalcode', national_id).execute()
         if not response.data:
             return jsonify({"error": "کد ملی وارد شده در سامانه ثبت نشده است."}), 404
+        
         user = response.data[0]
         if user.get('share_percentage') is None:
             supabase.table('member').update({"share_percentage": 100}).eq('nationalcode', national_id).execute()
+
         if user.get('phonenumber') and user.get('chat_id'):
             otp_code = random.randint(10000, 99999)
             otp_storage[national_id] = {"code": str(otp_code), "timestamp": time.time()}
@@ -137,11 +152,14 @@ def handle_sale_offers():
     if request.method == 'POST':
         data = request.get_json(silent=True)
         if not data: return jsonify({"error": "درخواست نامعتبر است."}), 400
+        
         national_id = data.get('national_id')
         percentage_to_sell = data.get('percentage_to_sell')
         price = data.get('price')
+
         if not all([national_id, percentage_to_sell, price]):
             return jsonify({"error": "اطلاعات ارسالی ناقص است."}), 400
+
         try:
             member_res = supabase.table('member').select("share_percentage").eq('nationalcode', national_id).execute()
             if not member_res.data: return jsonify({"error": "کاربر فروشنده یافت نشد."}), 404
@@ -156,6 +174,7 @@ def handle_sale_offers():
         except Exception as e:
             print(f"Create Offer DB Error: {e}")
             return jsonify({"error": "خطا در ثبت پیشنهاد در پایگاه داده."}), 500
+    
     if request.method == 'GET':
         try:
             response = supabase.table('sale_offers').select('*, member:seller_national_id ( first_name, last_name )').eq('status', 'active').execute()
@@ -207,25 +226,19 @@ def create_purchase_request():
         duplicate_check = supabase.table('purchase_requests').select('id').eq('offer_id', offer_id).eq('buyer_national_id', buyer_national_id).execute()
         if duplicate_check.data:
             return jsonify({"error": "شما قبلاً برای این پیشنهاد درخواست خرید ثبت کرده‌اید."}), 409
-        
         supabase.table('purchase_requests').insert({"offer_id": offer_id, "buyer_national_id": buyer_national_id}).execute()
-        
-        # --- بخش اصلاح شده ---
-        # ما اطلاعات خریدار و فروشنده را با دقت بیشتری می‌خوانیم
         seller_info_res = supabase.table('member').select('chat_id, first_name, last_name').eq('nationalcode', seller_id).execute()
         buyer_info_res = supabase.table('member').select('first_name, last_name').eq('nationalcode', buyer_national_id).execute()
-
         if seller_info_res.data and seller_info_res.data[0].get('chat_id') and buyer_info_res.data:
             seller_chat_id = seller_info_res.data[0]['chat_id']
             buyer_name = f"{buyer_info_res.data[0]['first_name']} {buyer_info_res.data[0]['last_name']}"
             notification_text = f"یک درخواست خرید جدید برای پیشنهاد شما از طرف «{buyer_name}» ثبت شد. لطفاً برای مدیریت درخواست‌ها به سامانه مراجعه کنید."
             requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": seller_chat_id, "text": notification_text})
-        # --- پایان بخش اصلاح شده ---
-
         return jsonify({"message": "درخواست شما با موفقیت ثبت و برای فروشنده ارسال شد."}), 201
     except Exception as e:
-        print(f"Purchase Request Error: {e}")
-        return jsonify({"error": "خطا در ثبت درخواست خرید."}), 500
+        error_message = f"Purchase Request Error: {str(e)}"
+        print(error_message)
+        return jsonify({"error": error_message}), 500
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
