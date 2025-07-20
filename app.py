@@ -138,11 +138,8 @@ def update_user_profile():
     national_id = data.get('national_id')
     postal_code = data.get('postal_code')
     address = data.get('address')
-    
-    # اعتبارسنجی جدید سمت سرور
     if not all([national_id, postal_code, address]) or postal_code == '' or address == '':
         return jsonify({"error": "تمام فیلدها (کد ملی، کد پستی، آدرس) الزامی هستند."}), 400
-
     try:
         supabase.table('member').update({"postal_code": postal_code, "address": address}).eq('nationalcode', national_id).execute()
         return jsonify({"message": "اطلاعات شما با موفقیت ذخیره شد."})
@@ -155,6 +152,7 @@ def handle_sale_offers():
     if request.method == 'POST':
         data = request.get_json(silent=True)
         if not data: return jsonify({"error": "درخواست نامعتبر است."}), 400
+        
         national_id = data.get('national_id')
         percentage_to_sell = data.get('percentage_to_sell')
         price = data.get('price')
@@ -195,9 +193,12 @@ def handle_sale_offers():
 @app.route('/api/sale-offers/<int:offer_id>')
 def get_offer_details(offer_id):
     try:
-        response = supabase.table('sale_offers').select('*, member:seller_national_id ( first_name, last_name )').eq('id', offer_id).single().execute()
+        # --- بخش اصلاح شده ---
+        # دستور .single() حذف شد
+        response = supabase.table('sale_offers').select('*, member:seller_national_id ( first_name, last_name )').eq('id', offer_id).execute()
+        # --- پایان بخش اصلاح شده ---
         if response.data:
-            offer = response.data
+            offer = response.data[0] # اولین نتیجه را انتخاب می‌کنیم
             if offer['percentage_to_sell'] > 0:
                 offer['normalized_price'] = int((offer['price'] / offer['percentage_to_sell']) * 100)
             else: offer['normalized_price'] = 0
