@@ -207,14 +207,21 @@ def create_purchase_request():
         duplicate_check = supabase.table('purchase_requests').select('id').eq('offer_id', offer_id).eq('buyer_national_id', buyer_national_id).execute()
         if duplicate_check.data:
             return jsonify({"error": "شما قبلاً برای این پیشنهاد درخواست خرید ثبت کرده‌اید."}), 409
+        
         supabase.table('purchase_requests').insert({"offer_id": offer_id, "buyer_national_id": buyer_national_id}).execute()
-        seller_info = supabase.table('member').select('chat_id, first_name, last_name').eq('nationalcode', seller_id).execute()
-        buyer_info = supabase.table('member').select('first_name, last_name').eq('nationalcode', buyer_national_id).execute()
-        if seller_info.data and seller_info.data[0].get('chat_id') and buyer_info.data:
-            seller_chat_id = seller_info.data[0]['chat_id']
-            buyer_name = f"{buyer_info.data[0]['first_name']} {buyer_info.data[0]['last_name']}"
+        
+        # --- بخش اصلاح شده ---
+        # ما اطلاعات خریدار و فروشنده را با دقت بیشتری می‌خوانیم
+        seller_info_res = supabase.table('member').select('chat_id, first_name, last_name').eq('nationalcode', seller_id).execute()
+        buyer_info_res = supabase.table('member').select('first_name, last_name').eq('nationalcode', buyer_national_id).execute()
+
+        if seller_info_res.data and seller_info_res.data[0].get('chat_id') and buyer_info_res.data:
+            seller_chat_id = seller_info_res.data[0]['chat_id']
+            buyer_name = f"{buyer_info_res.data[0]['first_name']} {buyer_info_res.data[0]['last_name']}"
             notification_text = f"یک درخواست خرید جدید برای پیشنهاد شما از طرف «{buyer_name}» ثبت شد. لطفاً برای مدیریت درخواست‌ها به سامانه مراجعه کنید."
             requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": seller_chat_id, "text": notification_text})
+        # --- پایان بخش اصلاح شده ---
+
         return jsonify({"message": "درخواست شما با موفقیت ثبت و برای فروشنده ارسال شد."}), 201
     except Exception as e:
         print(f"Purchase Request Error: {e}")
