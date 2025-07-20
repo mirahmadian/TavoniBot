@@ -35,7 +35,7 @@
             <p>در حال بارگذاری لیست...</p>
         </div>
         
-        <div id="no_offers_message" class="text-center hidden"><p>...</p></div>
+        <div id="no_offers_message" class="text-center hidden"><p>در حال حاضر هیچ پیشنهاد فعالی برای فروش وجود ندارد.</p></div>
         
         <div id="offers_container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             </div>
@@ -52,7 +52,6 @@
         fetchOffers();
     };
 
-    // تابع جدید برای تغییر چیدمان
     function setView(viewType) {
         const container = document.getElementById('offers_container');
         const gridBtn = document.getElementById('grid_view_btn');
@@ -80,23 +79,23 @@
             loadingEl.classList.add('hidden');
 
             if (response.ok) {
-                const visibleOffers = offers.filter(offer => offer.seller_national_id !== currentNationalId);
-                
-                if (visibleOffers.length === 0) {
-                    noOffersEl.querySelector('p').textContent = "در حال حاضر هیچ پیشنهاد فعالی از سایر کاربران برای فروش وجود ندارد.";
+                if (offers.length === 0) {
                     noOffersEl.classList.remove('hidden');
                     return;
                 }
 
-                // منطق تحلیل قیمت‌ها (با آستانه حساس‌تر)
-                const prices = visibleOffers.map(o => o.normalized_price);
+                // منطق تحلیل قیمت‌ها
+                const prices = offers.map(o => o.normalized_price);
                 const averagePrice = prices.reduce((a, b) => a + b, 0) / prices.length;
                 const stdDev = Math.sqrt(prices.map(x => Math.pow(x - averagePrice, 2)).reduce((a, b) => a + b, 0) / prices.length);
-                const outlierThreshold = averagePrice + (1.5 * stdDev); // آستانه حساس‌تر (۱.۵ برابر انحراف معیار)
+                const outlierThreshold = averagePrice + (1.5 * stdDev);
                 const cheapThreshold = averagePrice - (0.5 * stdDev);
 
                 containerEl.innerHTML = '';
-                visibleOffers.forEach(offer => {
+                // --- بخش اصلاح شده ---
+                // ما به جای فیلتر کردن، مستقیماً از لیست کامل offers استفاده می‌کنیم
+                offers.forEach(offer => {
+                // --- پایان بخش اصلاح شده ---
                     const sellerName = `${offer.member.first_name || ''} ${offer.member.last_name || ''}`;
                     const priceFormatted = offer.price.toLocaleString('fa-IR');
                     const normalizedPriceFormatted = offer.normalized_price.toLocaleString('fa-IR');
