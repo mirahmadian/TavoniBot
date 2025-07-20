@@ -146,16 +146,15 @@
                 });
                 const result = await response.json();
                 if (response.ok) {
+                    // --- بخش اصلاح شده ---
+                    // پاپ‌آپ حذف شد و هدایت به صورت فوری انجام می‌شود
                     clearInterval(otpTimer);
-                    showModal('ورود موفقیت‌آمیز', 'شما با موفقیت وارد شدید. در حال انتقال...', true);
-                    const modal = document.getElementById('message_modal');
-                    modal.addEventListener('close', () => {
-                        if (result.action === 'go_to_dashboard') {
-                            window.location.href = `dashboard.html?nid=${currentNationalId}`;
-                        } else {
-                            window.location.href = `profile.html?nid=${currentNationalId}`;
-                        }
-                    }, { once: true });
+                    if (result.action === 'go_to_dashboard') {
+                        window.location.href = `dashboard.html?nid=${currentNationalId}`;
+                    } else {
+                        window.location.href = `profile.html?nid=${currentNationalId}`;
+                    }
+                    // --- پایان بخش اصلاح شده ---
                 } else {
                     showModal('خطا', result.error || "خطای نامشخص.", false);
                 }
