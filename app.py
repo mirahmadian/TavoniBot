@@ -57,6 +57,10 @@ def serve_sell_share():
 def serve_view_offers():
     return send_from_directory(app.static_folder, 'view_offers.html')
 
+@app.route('/health-check')
+def health_check():
+    return '', 204 # ارسال پاسخ خالی با کد وضعیت "No Content"
+
 # --- API Endpoints ---
 @app.route('/get-user-profile')
 def get_user_profile():
