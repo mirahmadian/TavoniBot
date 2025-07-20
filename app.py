@@ -188,7 +188,7 @@ def get_offer_details(offer_id):
     except Exception as e:
         print(f"Get Offer Detail Error: {e}")
         return jsonify({"error": "خطا در دریافت اطلاعات پیشنهاد."}), 500
-        
+
 @app.route('/api/purchase-requests', methods=['POST'])
 def create_purchase_request():
     data = request.get_json(silent=True)
@@ -284,11 +284,8 @@ def verify_otp():
                     return jsonify({"message": "ورود موفقیت‌آمیز بود!", "action": "go_to_dashboard"})
                 else:
                     return jsonify({"message": "ورود موفقیت‌آمیز بود!", "action": "go_to_profile"})
-            # --- بخش اصلاح شده ---
-            # اگر response.data خالی بود، هیچ returnی اجرا نمی‌شد.
             else:
                  return jsonify({"message": "ورود موفقیت‌آمیز بود!", "action": "go_to_profile"})
-            # --- پایان بخش اصلاح شده ---
         except Exception as e:
             print(f"Profile check error: {e}")
             return jsonify({"message": "ورود موفقیت‌آمیز بود!", "action": "go_to_profile"})
