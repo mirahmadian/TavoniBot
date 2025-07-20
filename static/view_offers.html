@@ -62,10 +62,10 @@
 
                 containerEl.innerHTML = ''; // خالی کردن کانتینر قبل از افزودن کارت‌های جدید
                 offers.forEach(offer => {
-                    // فقط پیشنهادهای دیگران را نمایش بده
-                    if (offer.seller_national_id === currentNationalId) {
-                        return;
-                    }
+                    // --- حالت تست: این بخش موقتاً غیرفعال شده تا بتوانید پیشنهاد خودتان را ببینید ---
+                    // if (offer.seller_national_id === currentNationalId) {
+                    //     return;
+                    // }
                     
                     const sellerName = `${offer.member.first_name || ''} ${offer.member.last_name || ''}`;
                     const priceFormatted = offer.price.toLocaleString('fa-IR');
@@ -87,8 +87,8 @@
                     containerEl.innerHTML += cardHTML;
                 });
                 
-                // اگر بعد از فیلتر کردن، هیچ پیشنهادی برای نمایش نبود
                 if(containerEl.innerHTML === ''){
+                    noOffersEl.textContent = "هیچ پیشنهادی از سایر کاربران برای نمایش وجود ندارد."
                     noOffersEl.classList.remove('hidden');
                 }
 
