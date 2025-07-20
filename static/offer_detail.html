@@ -38,45 +38,70 @@
             </div>
             
             <div class="mt-8">
-                <button class="btn btn-primary w-full">ارسال درخواست نهایی خرید</button>
+                <button id="submit_request_btn" onclick="confirmPurchaseRequest()" class="btn btn-primary w-full">ارسال درخواست نهایی خرید</button>
             </div>
         </div>
     </div>
+    
+    <dialog id="confirm_modal" class="modal">
+        <div class="modal-box text-center">
+            <h3 class="font-bold text-lg">تأیید نهایی</h3>
+            <p class="py-4">آیا از ارسال درخواست خرید برای این پیشنهاد مطمئن هستید؟</p>
+            <div class="modal-action justify-center gap-4">
+                <button onclick="submitPurchaseRequest()" class="btn btn-success">بله، ارسال کن</button>
+                <form method="dialog"><button class="btn btn-ghost">انصراف</button></form>
+            </div>
+        </div>
+    </dialog>
+    
+    <dialog id="message_modal" class="modal">
+        <div class="modal-box text-center">
+            <h3 id="modal_title" class="font-bold text-lg"></h3>
+            <p id="modal_message" class="py-4"></p>
+            <div class="modal-action justify-center">
+                <form method="dialog"><button id="modal_button" class="btn">بستن</button></form>
+            </div>
+        </div>
+    </dialog>
 
 <script>
     const API_BACKEND_URL = "https://tavonibot.onrender.com";
     let currentNationalId = '';
     let offerId = '';
 
+    function showModal(title, message, isSuccess) {
+        const modal = document.getElementById('message_modal');
+        document.getElementById('modal_title').textContent = title;
+        document.getElementById('modal_message').textContent = message;
+        const modalButton = document.getElementById('modal_button');
+        modalButton.className = 'btn';
+        if (isSuccess) { modalButton.classList.add('btn-success'); } else { modalButton.classList.add('btn-error'); }
+        modal.showModal();
+    }
+
     window.onload = function() {
         const urlParams = new URLSearchParams(window.location.search);
         currentNationalId = urlParams.get('nid');
         offerId = urlParams.get('id');
-
         document.getElementById('back_link').href = `view_offers.html?nid=${currentNationalId}`;
-        
         if (!offerId) {
             document.getElementById('loading').textContent = 'خطا: شناسه پیشنهاد یافت نشد.';
             return;
         }
-        
         fetchOfferDetails();
     };
 
     async function fetchOfferDetails() {
         const loadingEl = document.getElementById('loading');
         const contentEl = document.getElementById('offer_content');
-
         try {
             const response = await fetch(`${API_BACKEND_URL}/api/sale-offers/${offerId}`);
             const offer = await response.json();
-
             if (response.ok) {
                 document.getElementById('seller_name').textContent = `${offer.member.first_name} ${offer.member.last_name}`;
                 document.getElementById('percentage').textContent = offer.percentage_to_sell;
                 document.getElementById('price').textContent = offer.price.toLocaleString('fa-IR');
                 document.getElementById('normalized_price').textContent = offer.normalized_price.toLocaleString('fa-IR');
-
                 loadingEl.classList.add('hidden');
                 contentEl.classList.remove('hidden');
             } else {
@@ -84,6 +109,44 @@
             }
         } catch (error) {
             loadingEl.textContent = 'خطا در ارتباط با سرور.';
+        }
+    }
+
+    function confirmPurchaseRequest() {
+        document.getElementById('confirm_modal').showModal();
+    }
+
+    async function submitPurchaseRequest() {
+        document.getElementById('confirm_modal').close();
+        const submitBtn = document.getElementById('submit_request_btn');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="loading loading-spinner"></span> در حال ارسال...';
+
+        try {
+            const response = await fetch(`${API_BACKEND_URL}/api/purchase-requests`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    offer_id: parseInt(offerId),
+                    buyer_national_id: currentNationalId
+                })
+            });
+            const result = await response.json();
+
+            if (response.ok) {
+                const modal = document.getElementById('message_modal');
+                showModal('موفقیت', result.message, true);
+                modal.addEventListener('close', () => {
+                    window.location.href = `view_offers.html?nid=${currentNationalId}`;
+                }, { once: true });
+            } else {
+                showModal('خطا', result.error, false);
+            }
+        } catch (error) {
+            showModal('خطا', 'خطا در ارتباط با سرور.', false);
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'ارسال درخواست نهایی خرید';
         }
     }
 </script>
