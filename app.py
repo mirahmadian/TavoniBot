@@ -42,25 +42,18 @@ linking_tokens = {}
 # --- مسیرهای اصلی ---
 @app.route('/')
 def serve_index(): return send_from_directory(app.static_folder, 'index.html')
-
 @app.route('/profile.html')
 def serve_profile(): return send_from_directory(app.static_folder, 'profile.html')
-
 @app.route('/dashboard.html')
 def serve_dashboard(): return send_from_directory(app.static_folder, 'dashboard.html')
-
 @app.route('/sell_share.html')
 def serve_sell_share(): return send_from_directory(app.static_folder, 'sell_share.html')
-
 @app.route('/view_offers.html')
 def serve_view_offers(): return send_from_directory(app.static_folder, 'view_offers.html')
-
 @app.route('/offer_detail.html')
 def serve_offer_detail(): return send_from_directory(app.static_folder, 'offer_detail.html')
-
 @app.route('/manage_offer.html')
 def serve_manage_offer(): return send_from_directory(app.static_folder, 'manage_offer.html')
-
 @app.route('/health-check')
 def health_check(): return '', 204
 
@@ -103,6 +96,11 @@ def start_login():
     data = request.get_json(silent=True)
     if not data or not data.get('national_id'):
         return jsonify({"error": "کد ملی الزامی است"}), 400
+        
+    if data.get('honeypot') and data.get('honeypot') != '':
+        time.sleep(random.uniform(1, 3))
+        return jsonify({"action": "register", "linking_token": "fake_token_for_bot"})
+
     national_id = data.get('national_id')
     try:
         response = supabase.table('member').select("phonenumber, chat_id, share_percentage").eq('nationalcode', national_id).execute()
@@ -114,7 +112,12 @@ def start_login():
         if user.get('phonenumber') and user.get('chat_id'):
             otp_code = random.randint(10000, 99999)
             otp_storage[national_id] = {"code": str(otp_code), "timestamp": time.time()}
-            otp_message = (f"کد ورود شما به سامانه تعاونی:\n`{otp_code}`\n\n_(برای کپی کردن، کد بالا را لمس کنید)_\n\nاین کد تا ۲ دقیقه دیگر معتبر است.\n*لطفاً این کد را در اختیار دیگران قرار ندهید.*")
+            otp_message = (
+                f"*تعاونی مصرف کارکنان سازمان حج و زیارت*\n\n"
+                f"سهامدار گرامی، کد محرمانه زیر جهت ورود به سامانه تعاونی مصرف می‌باشد.\n"
+                f"*لطفاً این کد را در اختیار دیگران قرار ندهید.*\n\n"
+                f"کد ورود شما: `{otp_code}`"
+            )
             requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": user['chat_id'], "text": otp_message, "parse_mode": "Markdown"})
             return jsonify({"action": "verify_otp"})
         else:
@@ -284,7 +287,13 @@ def webhook():
             del otp_storage[str(chat_id)]
             otp_code = random.randint(10000, 99999)
             otp_storage[national_id] = {"code": str(otp_code), "timestamp": time.time()}
-            otp_message = (f"ثبت‌نام شما با موفقیت انجام شد.\n\nکد ورود شما به سامانه تعاونی:\n`{otp_code}`\n\n_(برای کپی کردن، کد بالا را لمس کنید)_\n\nاین کد تا ۲ دقیقه دیگر معتبر است.\n*لطفاً این کد را در اختیار دیگران قرار ندهید.*")
+            otp_message = (
+                f"ثبت‌نام شما با موفقیت انجام شد.\n\n"
+                f"*تعاونی مصرف کارکنان سازمان حج و زیارت*\n\n"
+                f"سهامدار گرامی، کد محرمانه زیر جهت ورود به سامانه تعاونی مصرف می‌باشد.\n"
+                f"*لطفاً این کد را در اختیار دیگران قرار ندهید.*\n\n"
+                f"کد ورود شما: `{otp_code}`"
+            )
             payload = {"chat_id": chat_id, "text": otp_message, "parse_mode": "Markdown", "reply_markup": {"remove_keyboard": True}}
             requests.post(f"{BALE_API_URL}/sendMessage", json=payload)
         except Exception as e:
@@ -323,7 +332,7 @@ def verify_otp():
                 else:
                     return jsonify({"message": "ورود موفقیت‌آمیز بود!", "action": "go_to_profile"})
             else:
-                return jsonify({"message": "ورود موفقیت‌آمیز بود!", "action": "go_to_profile"})
+                 return jsonify({"message": "ورود موفقیت‌آمیز بود!", "action": "go_to_profile"})
         except Exception as e:
             print(f"Profile check error: {e}")
             return jsonify({"message": "ورود موفقیت‌آمیز بود!", "action": "go_to_profile"})

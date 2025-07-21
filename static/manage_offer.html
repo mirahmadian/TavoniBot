@@ -17,72 +17,65 @@
             <span class="loading loading-lg loading-spinner"></span>
             <p>در حال بارگذاری اطلاعات...</p>
         </div>
-
         <div id="content" class="hidden">
             <div class="flex justify-between items-center mb-6">
                 <h1 class="text-2xl font-bold text-gray-800">مدیریت پیشنهاد فروش</h1>
                 <a id="dashboard_link" href="#" class="btn btn-sm btn-outline">بازگشت به داشبورد</a>
             </div>
-
             <div class="bg-white p-6 rounded-2xl shadow-md mb-8">
                 <h2 class="text-xl font-semibold mb-4 border-b pb-2">جزئیات پیشنهاد شما</h2>
                 <p><strong>درصد سهام:</strong> <span id="offer_percentage"></span>%</p>
                 <p><strong>قیمت:</strong> <span id="offer_price"></span> تومان</p>
                 <p><strong>وضعیت:</strong> <span id="offer_status" class="badge badge-lg"></span></p>
             </div>
-
             <div class="bg-white p-6 rounded-2xl shadow-md">
                 <h2 class="text-xl font-semibold mb-4 border-b pb-2">لیست خریداران علاقه‌مند</h2>
                 <div id="requests_container" class="space-y-4">
-                    </div>
+                </div>
                 <div id="no_requests_message" class="text-center hidden">
                     <p>هنوز هیچ درخواست خریدی برای این پیشنهاد ثبت نشده است.</p>
                 </div>
             </div>
         </div>
     </div>
-
 <script>
     const API_BACKEND_URL = "https://tavonibot.onrender.com";
     let currentNationalId = '';
     let offerId = '';
-
     window.onload = function() {
         const urlParams = new URLSearchParams(window.location.search);
         currentNationalId = urlParams.get('nid');
         offerId = urlParams.get('id');
         document.getElementById('dashboard_link').href = `dashboard.html?nid=${currentNationalId}`;
-        
         if (!offerId || !currentNationalId) {
             document.getElementById('loading').textContent = 'خطا: اطلاعات مورد نیاز یافت نشد.';
             return;
         }
-        
         fetchOfferAndRequests();
     };
-
     async function fetchOfferAndRequests() {
         const loadingEl = document.getElementById('loading');
         const contentEl = document.getElementById('content');
         const requestsContainer = document.getElementById('requests_container');
         const noRequestsEl = document.getElementById('no_requests_message');
-
         try {
-            const response = await fetch(`${API_BACKEND_URL}/api/my-offers/${offerId}`);
+            const response = await fetch(`${API_BACKEND_URL}/api/my-offers/${offerId}?nid=${currentNationalId}`);
             const data = await response.json();
-            
             loadingEl.classList.add('hidden');
             contentEl.classList.remove('hidden');
-
             if (response.ok) {
-                // نمایش جزئیات پیشنهاد
                 document.getElementById('offer_percentage').textContent = data.percentage_to_sell;
                 document.getElementById('offer_price').textContent = data.price.toLocaleString('fa-IR');
                 const statusEl = document.getElementById('offer_status');
-                statusEl.textContent = data.status;
+                const statusMap = {
+                    'active': 'فعال',
+                    'pending': 'در حال معامله',
+                    'completed': 'تکمیل شده',
+                    'cancelled': 'لغو شده'
+                };
+                const persianStatus = statusMap[data.status] || data.status;
+                statusEl.textContent = persianStatus;
                 if(data.status === 'active') statusEl.classList.add('badge-success');
-
-                // نمایش لیست خریداران
                 if (data.purchase_requests.length === 0) {
                     noRequestsEl.classList.remove('hidden');
                 } else {
