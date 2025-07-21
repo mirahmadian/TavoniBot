@@ -96,11 +96,9 @@ def start_login():
     data = request.get_json(silent=True)
     if not data or not data.get('national_id'):
         return jsonify({"error": "کد ملی الزامی است"}), 400
-        
     if data.get('honeypot') and data.get('honeypot') != '':
         time.sleep(random.uniform(1, 3))
         return jsonify({"action": "register", "linking_token": "fake_token_for_bot"})
-
     national_id = data.get('national_id')
     try:
         response = supabase.table('member').select("phonenumber, chat_id, share_percentage").eq('nationalcode', national_id).execute()
@@ -112,12 +110,7 @@ def start_login():
         if user.get('phonenumber') and user.get('chat_id'):
             otp_code = random.randint(10000, 99999)
             otp_storage[national_id] = {"code": str(otp_code), "timestamp": time.time()}
-            otp_message = (
-                f"*تعاونی مصرف کارکنان سازمان حج و زیارت*\n\n"
-                f"سهامدار گرامی، کد محرمانه زیر جهت ورود به سامانه تعاونی مصرف می‌باشد.\n"
-                f"*لطفاً این کد را در اختیار دیگران قرار ندهید.*\n\n"
-                f"کد ورود شما: `{otp_code}`"
-            )
+            otp_message = (f"*تعاونی مصرف کارکنان سازمان حج و زیارت*\n\nسهامدار گرامی، کد محرمانه زیر جهت ورود به سامانه تعاونی مصرف می‌باشد.\n*لطفاً این کد را در اختیار دیگران قرار ندهید.*\n\nکد ورود شما: `{otp_code}`")
             requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": user['chat_id'], "text": otp_message, "parse_mode": "Markdown"})
             return jsonify({"action": "verify_otp"})
         else:
@@ -188,18 +181,30 @@ def handle_sale_offers():
 @app.route('/api/my-offers')
 def get_my_offers():
     national_id = request.args.get('nid')
-    if not national_id:
-        return jsonify({"error": "کد ملی ارسال نشده است."}), 400
+    if not national_id: return jsonify({"error": "کد ملی ارسال نشده است."}), 400
     try:
         response = supabase.rpc('get_offers_with_request_count', {'seller_nid': national_id}).execute()
         if response.data:
             sorted_offers = sorted(response.data, key=lambda x: x['price'], reverse=True)
             return jsonify(sorted_offers)
-        else:
-            return jsonify([])
+        else: return jsonify([])
     except Exception as e:
         print(f"Error fetching seller offers: {e}")
         return jsonify({"error": "خطا در دریافت پیشنهادهای شما."}), 500
+
+@app.route('/api/my-offers/<int:offer_id>')
+def get_my_offer_with_requests(offer_id):
+    try:
+        offer_res = supabase.table('sale_offers').select('*').eq('id', offer_id).execute()
+        if not offer_res.data:
+            return jsonify({"error": "پیشنهاد یافت نشد."}), 404
+        offer_details = offer_res.data[0]
+        requests_res = supabase.table('purchase_requests').select('*, member:buyer_national_id (first_name, last_name)').eq('offer_id', offer_id).execute()
+        offer_details['purchase_requests'] = requests_res.data if requests_res.data else []
+        return jsonify(offer_details)
+    except Exception as e:
+        print(f"Error fetching offer with requests: {e}")
+        return jsonify({"error": "خطا در دریافت اطلاعات مدیریت پیشنهاد."}), 500
 
 @app.route('/api/sale-offers/<int:offer_id>')
 def get_offer_details(offer_id):
@@ -247,19 +252,31 @@ def create_purchase_request():
     except Exception as e:
         return jsonify({"error": f"Purchase Request Error: {str(e)}"}), 500
 
-@app.route('/api/my-offers/<int:offer_id>')
-def get_my_offer_with_requests(offer_id):
+@app.route('/api/approve-request', methods=['POST'])
+def approve_request():
+    data = request.get_json(silent=True)
+    if not data: return jsonify({"error": "درخواست نامعتبر"}), 400
+    request_id = data.get('request_id')
+    seller_nid = data.get('seller_nid')
+    if not all([request_id, seller_nid]):
+        return jsonify({"error": "اطلاعات ارسالی ناقص است."}), 400
     try:
-        offer_res = supabase.table('sale_offers').select('*').eq('id', offer_id).execute()
-        if not offer_res.data:
-            return jsonify({"error": "پیشنهاد یافت نشد."}), 404
-        offer_details = offer_res.data[0]
-        requests_res = supabase.table('purchase_requests').select('*, member:buyer_national_id (first_name, last_name)').eq('offer_id', offer_id).execute()
-        offer_details['purchase_requests'] = requests_res.data if requests_res.data else []
-        return jsonify(offer_details)
+        response = supabase.rpc('approve_purchase_request', { 'p_request_id': request_id, 'p_seller_national_id': seller_nid }).execute()
+        result = response.data[0]
+        if result['status_code'] != 200:
+            return jsonify({"error": result['message']}), result['status_code']
+        buyer_chat_id = result.get('buyer_chat_id')
+        seller_chat_id = result.get('seller_chat_id')
+        buyer_phone = result.get('buyer_phone')
+        seller_phone = result.get('seller_phone')
+        if buyer_chat_id and seller_phone:
+            requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": buyer_chat_id, "text": f"تبریک! درخواست خرید شما تایید شد.\nاطلاعات تماس فروشنده: {seller_phone}"})
+        if seller_chat_id and buyer_phone:
+             requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": seller_chat_id, "text": f"شما درخواست خرید را تایید کردید.\nاطلاعات تماس خریدار: {buyer_phone}"})
+        return jsonify({"message": result['message']})
     except Exception as e:
-        print(f"Error fetching offer with requests: {e}")
-        return jsonify({"error": "خطا در دریافت اطلاعات مدیریت پیشنهاد."}), 500
+        print(f"Approve Request Error: {e}")
+        return jsonify({"error": "خطا در فرآیند تایید درخواست."}), 500
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
@@ -287,13 +304,7 @@ def webhook():
             del otp_storage[str(chat_id)]
             otp_code = random.randint(10000, 99999)
             otp_storage[national_id] = {"code": str(otp_code), "timestamp": time.time()}
-            otp_message = (
-                f"ثبت‌نام شما با موفقیت انجام شد.\n\n"
-                f"*تعاونی مصرف کارکنان سازمان حج و زیارت*\n\n"
-                f"سهامدار گرامی، کد محرمانه زیر جهت ورود به سامانه تعاونی مصرف می‌باشد.\n"
-                f"*لطفاً این کد را در اختیار دیگران قرار ندهید.*\n\n"
-                f"کد ورود شما: `{otp_code}`"
-            )
+            otp_message = (f"ثبت‌نام شما با موفقیت انجام شد.\n\n*تعاونی مصرف کارکنان سازمان حج و زیارت*\n\nسهامدار گرامی، کد محرمانه زیر جهت ورود به سامانه تعاونی مصرف می‌باشد.\n*لطفاً این کد را در اختیار دیگران قرار ندهید.*\n\nکد ورود شما: `{otp_code}`")
             payload = {"chat_id": chat_id, "text": otp_message, "parse_mode": "Markdown", "reply_markup": {"remove_keyboard": True}}
             requests.post(f"{BALE_API_URL}/sendMessage", json=payload)
         except Exception as e:
