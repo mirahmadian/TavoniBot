@@ -16,7 +16,7 @@
         <div class="flex justify-between items-center mb-8">
             <h1 id="welcome_message" class="text-2xl font-bold text-gray-800">خوش آمدید، ...</h1>
             <a href="/" class="btn btn-sm btn-outline btn-error">خروج</a>
-            </div>
+        </div>
 
         <div class="bg-white p-6 rounded-2xl shadow-md mb-8">
             <h2 class="text-xl font-semibold mb-4 border-b pb-2">وضعیت سهام شما</h2>
@@ -27,7 +27,7 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <div class="card bg-base-100 shadow-md">
                 <div class="card-body items-center text-center">
                     <h2 class="card-title">فروش سهام</h2>
@@ -46,6 +46,19 @@
                     </div>
                 </div>
             </div>
+        </div>
+        
+        <div class="bg-white p-6 rounded-2xl shadow-md">
+            <h2 class="text-xl font-semibold mb-4 border-b pb-2">پیشنهادهای فروش فعال شما</h2>
+            <div id="my_offers_loading" class="text-center">
+                <span class="loading loading-spinner"></span>
+                <p>در حال بارگذاری پیشنهادها...</p>
+            </div>
+            <div id="no_my_offers_message" class="text-center hidden">
+                <p>شما در حال حاضر هیچ پیشنهاد فعالی برای فروش ندارید.</p>
+            </div>
+            <div id="my_offers_container" class="space-y-4">
+                </div>
         </div>
     </div>
 
@@ -66,6 +79,7 @@
         document.getElementById('buy_shares_link').href = `view_offers.html?nid=${currentNationalId}`;
 
         fetchMemberData();
+        fetchMyOffers(); // فراخوانی تابع جدید
     };
 
     async function fetchMemberData() {
@@ -86,6 +100,50 @@
             }
         } catch (error) {
             loadingEl.textContent = 'خطا در ارتباط با سرور.';
+        }
+    }
+
+    // تابع جدید برای دریافت پیشنهادهای فروش کاربر
+    async function fetchMyOffers() {
+        const loadingEl = document.getElementById('my_offers_loading');
+        const containerEl = document.getElementById('my_offers_container');
+        const noOffersEl = document.getElementById('no_my_offers_message');
+
+        try {
+            const response = await fetch(`${API_BACKEND_URL}/api/my-offers?nid=${currentNationalId}`);
+            const offers = await response.json();
+            
+            loadingEl.classList.add('hidden');
+
+            if (response.ok) {
+                if (offers.length === 0) {
+                    noOffersEl.classList.remove('hidden');
+                    return;
+                }
+
+                containerEl.innerHTML = '';
+                offers.forEach(offer => {
+                    const priceFormatted = offer.price.toLocaleString('fa-IR');
+                    const requestCount = offer.request_count || 0;
+                    const cardHTML = `
+                        <div class="p-4 border rounded-lg flex justify-between items-center">
+                            <div>
+                                <p><strong>${offer.percentage_to_sell}%</strong> از سهام به قیمت <strong>${priceFormatted} تومان</strong></p>
+                                <p class="text-sm text-gray-600">تعداد درخواست‌های خرید: <span class="badge badge-secondary">${requestCount}</span></p>
+                            </div>
+                            <a href="manage_offer.html?id=${offer.offer_id}&nid=${currentNationalId}" class="btn btn-sm btn-outline-primary">مدیریت پیشنهاد</a>
+                        </div>
+                    `;
+                    containerEl.innerHTML += cardHTML;
+                });
+            } else {
+                noOffersEl.querySelector('p').textContent = offers.error || 'خطا در بارگذاری پیشنهادها.';
+                noOffersEl.classList.remove('hidden');
+            }
+        } catch (error) {
+            loadingEl.classList.add('hidden');
+            noOffersEl.querySelector('p').textContent = 'خطا در ارتباط با سرور.';
+            noOffersEl.classList.remove('hidden');
         }
     }
 </script>
