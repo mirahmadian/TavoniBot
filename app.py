@@ -50,20 +50,16 @@ def serve_profile(): return send_from_directory(app.static_folder, 'profile.html
 def serve_dashboard(): return send_from_directory(app.static_folder, 'dashboard.html')
 
 @app.route('/sell_share.html')
-def serve_sell_share():
-    return send_from_directory(app.static_folder, 'sell_share.html')
+def serve_sell_share(): return send_from_directory(app.static_folder, 'sell_share.html')
 
 @app.route('/view_offers.html')
-def serve_view_offers():
-    return send_from_directory(app.static_folder, 'view_offers.html')
+def serve_view_offers(): return send_from_directory(app.static_folder, 'view_offers.html')
 
 @app.route('/offer_detail.html')
-def serve_offer_detail():
-    return send_from_directory(app.static_folder, 'offer_detail.html')
+def serve_offer_detail(): return send_from_directory(app.static_folder, 'offer_detail.html')
 
 @app.route('/health-check')
-def health_check():
-    return '', 204
+def health_check(): return '', 204
 
 # --- API Endpoints ---
 @app.route('/get-user-profile')
@@ -88,7 +84,6 @@ def get_member_data():
         member_res = supabase.table('member').select("first_name, last_name, share_percentage").eq('nationalcode', national_id).execute()
         if not member_res.data:
             return jsonify({"error": "کاربری با این کد ملی یافت نشد."}), 404
-        
         member_data = member_res.data[0]
         total_shares = member_data.get('share_percentage', 100)
         offers_res = supabase.table('sale_offers').select('percentage_to_sell').eq('seller_national_id', national_id).eq('status', 'active').execute()
@@ -105,18 +100,14 @@ def start_login():
     data = request.get_json(silent=True)
     if not data or not data.get('national_id'):
         return jsonify({"error": "کد ملی الزامی است"}), 400
-    
     national_id = data.get('national_id')
-
     try:
         response = supabase.table('member').select("phonenumber, chat_id, share_percentage").eq('nationalcode', national_id).execute()
         if not response.data:
             return jsonify({"error": "کد ملی وارد شده در سامانه ثبت نشده است."}), 404
-        
         user = response.data[0]
         if user.get('share_percentage') is None:
             supabase.table('member').update({"share_percentage": 100}).eq('nationalcode', national_id).execute()
-
         if user.get('phonenumber') and user.get('chat_id'):
             otp_code = random.randint(10000, 99999)
             otp_storage[national_id] = {"code": str(otp_code), "timestamp": time.time()}
@@ -187,6 +178,22 @@ def handle_sale_offers():
         except Exception as e:
             print(f"Get Offers DB Error: {e}")
             return jsonify({"error": "خطا در دریافت لیست پیشنهادها."}), 500
+
+@app.route('/api/my-offers')
+def get_my_offers():
+    national_id = request.args.get('nid')
+    if not national_id:
+        return jsonify({"error": "کد ملی ارسال نشده است."}), 400
+    try:
+        response = supabase.rpc('get_offers_with_request_count', {'seller_nid': national_id}).execute()
+        if response.data:
+            sorted_offers = sorted(response.data, key=lambda x: x['price'], reverse=True)
+            return jsonify(sorted_offers)
+        else:
+            return jsonify([])
+    except Exception as e:
+        print(f"Error fetching seller offers: {e}")
+        return jsonify({"error": "خطا در دریافت پیشنهادهای شما."}), 500
 
 @app.route('/api/sale-offers/<int:offer_id>')
 def get_offer_details(offer_id):
@@ -299,10 +306,7 @@ def verify_otp():
                 else:
                     return jsonify({"message": "ورود موفقیت‌آمیز بود!", "action": "go_to_profile"})
             else:
-                # --- بخش اصلاح شده ---
-                # اگر response.data خالی بود، هیچ returnی اجرا نمی‌شد.
-                return jsonify({"message": "ورود موفقیت‌آمیز بود!", "action": "go_to_profile"})
-                # --- پایان بخش اصلاح شده ---
+                 return jsonify({"message": "ورود موفقیت‌آمیز بود!", "action": "go_to_profile"})
         except Exception as e:
             print(f"Profile check error: {e}")
             return jsonify({"message": "ورود موفقیت‌آمیز بود!", "action": "go_to_profile"})
