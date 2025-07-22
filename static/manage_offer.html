@@ -104,7 +104,6 @@
                         const reqPersianStatus = reqStatusMap[req.status] || req.status;
                         
                         let actionButtons = '';
-                        // اگر پیشنهاد فروش هنوز فعال باشد و درخواست خرید در حال بررسی باشد، دکمه‌ها را نمایش بده
                         if (data.status === 'active' && req.status === 'pending') {
                             actionButtons = `
                                 <div class="join">
