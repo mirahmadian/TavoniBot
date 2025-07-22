@@ -101,12 +101,12 @@ def get_member_data():
 @app.route('/start-login', methods=['POST'])
 def start_login():
     data = request.get_json(silent=True)
-    if not data or not data.get('national_id'):
-        return jsonify({"error": "کد ملی الزامی است"}), 400
+    if not data: return jsonify({"error": "درخواست نامعتبر است."}), 400
     if data.get('honeypot') and data.get('honeypot') != '':
         time.sleep(random.uniform(1, 3))
         return jsonify({"action": "register", "linking_token": "fake_token_for_bot"})
     national_id = data.get('national_id')
+    if not national_id: return jsonify({"error": "کد ملی الزامی است"}), 400
     try:
         response = supabase.table('member').select("phonenumber, chat_id, share_percentage").eq('nationalcode', national_id).execute()
         if not response.data:
@@ -202,10 +202,12 @@ def get_my_offers():
 
 @app.route('/api/my-offers/<int:offer_id>')
 def get_my_offer_with_requests(offer_id):
+    national_id = request.args.get('nid')
+    if not national_id: return jsonify({"error": "شناسه کاربر نامشخص است."}), 400
     try:
-        offer_res = supabase.table('sale_offers').select('*').eq('id', offer_id).execute()
+        offer_res = supabase.table('sale_offers').select('*').eq('id', offer_id).eq('seller_national_id', national_id).execute()
         if not offer_res.data:
-            return jsonify({"error": "پیشنهاد یافت نشد."}), 404
+            return jsonify({"error": "این پیشنهاد متعلق به شما نیست یا یافت نشد."}), 404
         offer_details = offer_res.data[0]
         requests_res = supabase.table('purchase_requests').select('*, member:buyer_national_id (first_name, last_name)').eq('offer_id', offer_id).execute()
         offer_details['purchase_requests'] = requests_res.data if requests_res.data else []
@@ -270,6 +272,8 @@ def approve_request():
         return jsonify({"error": "اطلاعات ارسالی ناقص است."}), 400
     try:
         response = supabase.rpc('approve_purchase_request', { 'p_request_id': request_id, 'p_seller_national_id': seller_nid }).execute()
+        if not response.data:
+             return jsonify({"error": "خطایی در اجرای تابع پایگاه داده رخ داد."}), 500
         result = response.data[0]
         if result['status_code'] != 200:
             return jsonify({"error": result['message']}), result['status_code']
