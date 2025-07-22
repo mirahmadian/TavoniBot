@@ -42,18 +42,25 @@ linking_tokens = {}
 # --- مسیرهای اصلی ---
 @app.route('/')
 def serve_index(): return send_from_directory(app.static_folder, 'index.html')
+
 @app.route('/profile.html')
 def serve_profile(): return send_from_directory(app.static_folder, 'profile.html')
+
 @app.route('/dashboard.html')
 def serve_dashboard(): return send_from_directory(app.static_folder, 'dashboard.html')
+
 @app.route('/sell_share.html')
 def serve_sell_share(): return send_from_directory(app.static_folder, 'sell_share.html')
+
 @app.route('/view_offers.html')
 def serve_view_offers(): return send_from_directory(app.static_folder, 'view_offers.html')
+
 @app.route('/offer_detail.html')
 def serve_offer_detail(): return send_from_directory(app.static_folder, 'offer_detail.html')
+
 @app.route('/manage_offer.html')
 def serve_manage_offer(): return send_from_directory(app.static_folder, 'manage_offer.html')
+
 @app.route('/health-check')
 def health_check(): return '', 204
 
