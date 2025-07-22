@@ -188,8 +188,7 @@ def handle_sale_offers():
 @app.route('/api/my-offers')
 def get_my_offers():
     national_id = request.args.get('nid')
-    if not national_id:
-        return jsonify({"error": "کد ملی ارسال نشده است."}), 400
+    if not national_id: return jsonify({"error": "کد ملی ارسال نشده است."}), 400
     try:
         response = supabase.rpc('get_offers_with_request_count', {'seller_nid': national_id}).execute()
         if response.data:
