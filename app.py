@@ -42,18 +42,25 @@ linking_tokens = {}
 # --- مسیرهای اصلی ---
 @app.route('/')
 def serve_index(): return send_from_directory(app.static_folder, 'index.html')
+
 @app.route('/profile.html')
 def serve_profile(): return send_from_directory(app.static_folder, 'profile.html')
+
 @app.route('/dashboard.html')
 def serve_dashboard(): return send_from_directory(app.static_folder, 'dashboard.html')
+
 @app.route('/sell_share.html')
 def serve_sell_share(): return send_from_directory(app.static_folder, 'sell_share.html')
+
 @app.route('/view_offers.html')
 def serve_view_offers(): return send_from_directory(app.static_folder, 'view_offers.html')
+
 @app.route('/offer_detail.html')
 def serve_offer_detail(): return send_from_directory(app.static_folder, 'offer_detail.html')
+
 @app.route('/manage_offer.html')
 def serve_manage_offer(): return send_from_directory(app.static_folder, 'manage_offer.html')
+
 @app.route('/health-check')
 def health_check(): return '', 204
 
@@ -181,7 +188,8 @@ def handle_sale_offers():
 @app.route('/api/my-offers')
 def get_my_offers():
     national_id = request.args.get('nid')
-    if not national_id: return jsonify({"error": "کد ملی ارسال نشده است."}), 400
+    if not national_id:
+        return jsonify({"error": "کد ملی ارسال نشده است."}), 400
     try:
         response = supabase.rpc('get_offers_with_request_count', {'seller_nid': national_id}).execute()
         if response.data:
@@ -277,6 +285,30 @@ def approve_request():
     except Exception as e:
         print(f"Approve Request Error: {e}")
         return jsonify({"error": "خطا در فرآیند تایید درخواست."}), 500
+
+@app.route('/api/reject-request', methods=['POST'])
+def reject_request():
+    data = request.get_json(silent=True)
+    if not data: return jsonify({"error": "درخواست نامعتبر"}), 400
+    request_id = data.get('request_id')
+    seller_nid = data.get('seller_nid')
+    if not all([request_id, seller_nid]):
+        return jsonify({"error": "اطلاعات ارسالی ناقص است."}), 400
+    try:
+        req_res = supabase.table('purchase_requests').select('*, sale_offers(seller_national_id)').eq('id', request_id).single().execute()
+        if not req_res.data or req_res.data['sale_offers']['seller_national_id'] != seller_nid:
+            return jsonify({"error": "شما اجازه رد این درخواست را ندارید."}), 403
+        supabase.table('purchase_requests').update({'status': 'rejected'}).eq('id', request_id).execute()
+        buyer_national_id = req_res.data['buyer_national_id']
+        buyer_info_res = supabase.table('member').select('chat_id').eq('nationalcode', buyer_national_id).execute()
+        if buyer_info_res.data and buyer_info_res.data[0].get('chat_id'):
+            buyer_chat_id = buyer_info_res.data[0]['chat_id']
+            notification_text = "متاسفانه درخواست خرید شما برای یک سهم، توسط فروشنده رد شد."
+            requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": buyer_chat_id, "text": notification_text})
+        return jsonify({"message": "درخواست با موفقیت رد شد."})
+    except Exception as e:
+        print(f"Reject Request Error: {e}")
+        return jsonify({"error": "خطا در فرآیند رد کردن درخواست."}), 500
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
