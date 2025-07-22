@@ -99,8 +99,7 @@
                     data.purchase_requests.forEach(req => {
                         const buyerName = `${req.member.first_name} ${req.member.last_name}`;
                         const reqDate = new Date(req.created_at).toLocaleDateString('fa-IR');
-                        const reqStatusMap = {'pending': 'در حال بررسی', 'approved': 'تایید شده', 'rejected': 'رد شده'};
-                        const reqPersianStatus = reqStatusMap[req.status] || req.status;
+                        const reqPersianStatus = statusMap[req.status] || req.status;
                         let actionButtons = '';
                         if (data.status === 'active' && req.status === 'pending') {
                             actionButtons = `
@@ -111,8 +110,7 @@
                             `;
                         } else if (req.status === 'approved') {
                             actionButtons = `<span class="text-success font-bold">تایید شده</span>`;
-                        }
-                         else if (req.status === 'rejected') {
+                        } else if (req.status === 'rejected') {
                             actionButtons = `<span class="text-error font-bold">رد شده</span>`;
                         }
                         const reqHTML = `
