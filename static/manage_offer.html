@@ -87,11 +87,12 @@
                 document.getElementById('offer_percentage').textContent = data.percentage_to_sell;
                 document.getElementById('offer_price').textContent = data.price.toLocaleString('fa-IR');
                 const statusEl = document.getElementById('offer_status');
-                const statusMap = {'active': 'فعال', 'pending': 'در حال بررسی', 'completed': 'تکمیل شده', 'cancelled': 'لغو شده'};
+                const statusMap = {'active': 'فعال', 'pending': 'در حال معامله', 'completed': 'تکمیل شده', 'cancelled': 'لغو شده'};
                 const persianStatus = statusMap[data.status] || data.status;
                 statusEl.textContent = persianStatus;
-                if(data.status === 'active') statusEl.classList.add('badge-success');
-                else {statusEl.classList.add('badge-warning');}
+                if(data.status === 'active') { statusEl.classList.add('badge-success'); }
+                else { statusEl.classList.add('badge-warning'); }
+
                 if (data.purchase_requests.length === 0) {
                     noRequestsEl.classList.remove('hidden');
                 } else {
@@ -99,8 +100,11 @@
                     data.purchase_requests.forEach(req => {
                         const buyerName = `${req.member.first_name} ${req.member.last_name}`;
                         const reqDate = new Date(req.created_at).toLocaleDateString('fa-IR');
-                        const reqPersianStatus = statusMap[req.status] || req.status;
+                        const reqStatusMap = {'pending': 'در حال بررسی', 'approved': 'تایید شده', 'rejected': 'رد شده'};
+                        const reqPersianStatus = reqStatusMap[req.status] || req.status;
+                        
                         let actionButtons = '';
+                        // اگر پیشنهاد فروش هنوز فعال باشد و درخواست خرید در حال بررسی باشد، دکمه‌ها را نمایش بده
                         if (data.status === 'active' && req.status === 'pending') {
                             actionButtons = `
                                 <div class="join">
@@ -113,6 +117,7 @@
                         } else if (req.status === 'rejected') {
                             actionButtons = `<span class="text-error font-bold">رد شده</span>`;
                         }
+
                         const reqHTML = `
                             <div class="p-4 border rounded-lg flex justify-between items-center">
                                 <div>
@@ -134,6 +139,7 @@
             document.getElementById('content').innerHTML = '<p class="text-center text-error">خطا در ارتباط با سرور.</p>';
         }
     }
+    
     async function approveRequest(requestId) {
         if (!confirm('آیا از تایید این خریدار و رد کردن بقیه درخواست‌ها مطمئن هستید؟ این عمل غیرقابل بازگشت است.')) {
             return;
@@ -156,6 +162,7 @@
             showModal('خطا', 'خطا در ارتباط با سرور.', false);
         }
     }
+
     async function rejectRequest(requestId) {
         if (!confirm('آیا از رد کردن این درخواست خرید مطمئن هستید؟')) {
             return;
