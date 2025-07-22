@@ -3,187 +3,135 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>مدیریت پیشنهاد - سامانه تعاونی</title>
-    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.20/dist/full.min.css" rel="stylesheet" />
-    <link href="https://cdn.jsdelivr.net/npm/@fontsource/vazirmatn@latest/index.css" rel="stylesheet" />
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>مدیریت پیشنهاد فروش</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { font-family: Vazirmatn, sans-serif; background-color: #f0f2f5; }
+        body { background-color: #f8f9fa; }
+        .container { max-width: 800px; margin-top: 20px; }
+        .buyer-request { display: flex; justify-content: space-between; align-items: center; }
+        .approve-btn, .reject-btn { margin-left: 10px; }
     </style>
 </head>
-<body class="p-4 md:p-8">
-    <div class="max-w-4xl mx-auto">
-        <div id="loading" class="text-center">
-            <span class="loading loading-lg loading-spinner"></span>
-            <p>در حال بارگذاری اطلاعات...</p>
+<body>
+    <div class="container">
+        <div class="card mb-3">
+            <div class="card-body">
+                <h5>مدیریت پیشنهاد فروش</h5>
+                <a href="/dashboard.html" class="btn btn-primary">بازگشت به داشبورد</a>
+            </div>
         </div>
-        <div id="content" class="hidden">
-            <div class="flex justify-between items-center mb-6">
-                <h1 class="text-2xl font-bold text-gray-800">مدیریت پیشنهاد فروش</h1>
-                <a id="dashboard_link" href="#" class="btn btn-sm btn-outline">بازگشت به داشبورد</a>
+        <div class="card mb-3">
+            <div class="card-body">
+                <h5>جزئیات پیشنهاد شما</h5>
+                <p>درصد سهام: <span id="offer_percentage"></span>%</p>
+                <p>قیمت: <span id="offer_price"></span> تومان</p>
+                <p>وضعیت: <span id="offer_status"></span></p>
             </div>
-            <div class="bg-white p-6 rounded-2xl shadow-md mb-8">
-                <h2 class="text-xl font-semibold mb-4 border-b pb-2">جزئیات پیشنهاد شما</h2>
-                <p><strong>درصد سهام:</strong> <span id="offer_percentage"></span>%</p>
-                <p><strong>قیمت:</strong> <span id="offer_price"></span> تومان</p>
-                <p><strong>وضعیت:</strong> <span id="offer_status" class="badge badge-lg"></span></p>
-            </div>
-            <div class="bg-white p-6 rounded-2xl shadow-md">
-                <h2 class="text-xl font-semibold mb-4 border-b pb-2">لیست خریداران علاقه‌مند</h2>
-                <div id="requests_container" class="space-y-4"></div>
-                <div id="no_requests_message" class="text-center hidden">
-                    <p>هنوز هیچ درخواست خریدی برای این پیشنهاد ثبت نشده است.</p>
+        </div>
+        <div id="buyers_list" class="card mb-3">
+            <div class="card-body">
+                <h5>لیست خریداران علاقه‌مند</h5>
+                <div id="buyers_container">
+                    <p>در حال بارگذاری اطلاعات...</p>
                 </div>
             </div>
         </div>
     </div>
-    <dialog id="message_modal" class="modal">
-        <div class="modal-box text-center">
-            <h3 id="modal_title" class="font-bold text-lg"></h3>
-            <p id="modal_message" class="py-4"></p>
-            <div class="modal-action justify-center">
-                <form method="dialog"><button id="modal_button" class="btn">بستن</button></form>
-            </div>
-        </div>
-    </dialog>
-<script>
-    const API_BACKEND_URL = "https://tavonibot.onrender.com";
-    let currentNationalId = '';
-    let offerId = '';
-    
-    function showModal(title, message, isSuccess) {
-        const modal = document.getElementById('message_modal');
-        document.getElementById('modal_title').textContent = title;
-        document.getElementById('modal_message').textContent = message;
-        const modalButton = document.getElementById('modal_button');
-        modalButton.className = 'btn';
-        if (isSuccess) { modalButton.classList.add('btn-success'); } else { modalButton.classList.add('btn-error'); }
-        modal.showModal();
-    }
 
-    window.onload = function() {
-        const urlParams = new URLSearchParams(window.location.search);
-        currentNationalId = urlParams.get('nid');
-        offerId = urlParams.get('id');
-        document.getElementById('dashboard_link').href = `dashboard.html?nid=${currentNationalId}`;
-        if (!offerId || !currentNationalId) {
-            document.getElementById('loading').textContent = 'خطا: اطلاعات مورد نیاز یافت نشد.';
-            return;
-        }
-        fetchOfferAndRequests();
-    };
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function loadOfferDetails(offerId, nationalId) {
+            fetch(`/api/my-offers/${offerId}?nid=${nationalId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert(data.error);
+                        return;
+                    }
+                    document.getElementById('offer_percentage').textContent = data.percentage_to_sell;
+                    document.getElementById('offer_price').textContent = data.price.toLocaleString();
+                    const statusTranslations = {
+                        'pending': 'در حال بررسی',
+                        'active': 'فعال',
+                        'rejected': 'رد شده',
+                        'approved': 'تأیید شده'
+                    };
+                    document.getElementById('offer_status').textContent = statusTranslations[data.status] || data.status;
 
-    async function fetchOfferAndRequests() {
-        const loadingEl = document.getElementById('loading');
-        const contentEl = document.getElementById('content');
-        const requestsContainer = document.getElementById('requests_container');
-        const noRequestsEl = document.getElementById('no_requests_message');
-        try {
-            const response = await fetch(`${API_BACKEND_URL}/api/my-offers/${offerId}?nid=${currentNationalId}`);
-            const data = await response.json();
-            loadingEl.classList.add('hidden');
-            contentEl.classList.remove('hidden');
-            if (response.ok) {
-                document.getElementById('offer_percentage').textContent = data.percentage_to_sell;
-                document.getElementById('offer_price').textContent = data.price.toLocaleString('fa-IR');
-                const statusEl = document.getElementById('offer_status');
-                const statusMap = {'active': 'فعال', 'pending': 'در حال معامله', 'completed': 'تکمیل شده', 'cancelled': 'لغو شده'};
-                const persianStatus = statusMap[data.status] || data.status;
-                statusEl.textContent = persianStatus;
-                if(data.status === 'active') { statusEl.classList.add('badge-success'); }
-                else { statusEl.classList.add('badge-warning'); }
-
-                if (data.purchase_requests.length === 0) {
-                    noRequestsEl.classList.remove('hidden');
-                } else {
-                    requestsContainer.innerHTML = '';
-                    data.purchase_requests.forEach(req => {
-                        const buyerName = `${req.member.first_name} ${req.member.last_name}`;
-                        const reqDate = new Date(req.created_at).toLocaleDateString('fa-IR');
-                        const reqStatusMap = {'pending': 'در حال بررسی', 'approved': 'تایید شده', 'rejected': 'رد شده'};
-                        const reqPersianStatus = reqStatusMap[req.status] || req.status;
-                        
-                        let actionButtons = '';
-                        if (data.status === 'active' && req.status === 'pending') {
-                            actionButtons = `
-                                <div class="join">
-                                    <button onclick="approveRequest(${req.id})" class="btn btn-sm join-item btn-success">تأیید</button>
-                                    <button onclick="rejectRequest(${req.id})" class="btn btn-sm join-item btn-error">رد کردن</button>
-                                </div>
+                    const buyersContainer = document.getElementById('buyers_container');
+                    if (data.purchase_requests && data.purchase_requests.length > 0) {
+                        buyersContainer.innerHTML = '';
+                        data.purchase_requests.forEach(request => {
+                            const requestDiv = document.createElement('div');
+                            requestDiv.className = 'buyer-request mb-2 p-2 border rounded';
+                            requestDiv.innerHTML = `
+                                <p>خریدار: ${request.first_name} ${request.last_name}</p>
+                                <button class="btn btn-success btn-sm approve-btn" data-request-id="${request.id}">تأیید</button>
+                                <button class="btn btn-danger btn-sm reject-btn" data-request-id="${request.id}">رد</button>
                             `;
-                        } else if (req.status === 'approved') {
-                            actionButtons = `<span class="text-success font-bold">تایید شده</span>`;
-                        } else if (req.status === 'rejected') {
-                            actionButtons = `<span class="text-error font-bold">رد شده</span>`;
-                        }
+                            buyersContainer.appendChild(requestDiv);
+                        });
 
-                        const reqHTML = `
-                            <div class="p-4 border rounded-lg flex justify-between items-center">
-                                <div>
-                                    <p><strong>نام خریدار:</strong> ${buyerName}</p>
-                                    <p class="text-sm">تاریخ درخواست: ${reqDate}</p>
-                                    <p class="text-sm text-gray-500">وضعیت: ${reqPersianStatus}</p>
-                                </div>
-                                <div>${actionButtons}</div>
-                            </div>
-                        `;
-                        requestsContainer.innerHTML += reqHTML;
-                    });
-                }
-            } else {
-                document.getElementById('content').innerHTML = `<p class="text-center text-error">${data.error}</p>`;
-            }
-        } catch (error) {
-            loadingEl.classList.add('hidden');
-            document.getElementById('content').innerHTML = '<p class="text-center text-error">خطا در ارتباط با سرور.</p>';
+                        document.querySelectorAll('.approve-btn').forEach(button => {
+                            button.addEventListener('click', () => {
+                                const requestId = button.getAttribute('data-request-id');
+                                approveRequest(requestId, nationalId);
+                            });
+                        });
+
+                        document.querySelectorAll('.reject-btn').forEach(button => {
+                            button.addEventListener('click', () => {
+                                const requestId = button.getAttribute('data-request-id');
+                                rejectRequest(requestId, nationalId);
+                            });
+                        });
+                    } else {
+                        buyersContainer.innerHTML = '<p>هنوز هیچ درخواست خریدی برای این پیشنهاد ثبت نشده است.</p>';
+                    }
+                })
+                .catch(error => console.error('Error loading offer details:', error));
         }
-    }
-    
-    async function approveRequest(requestId) {
-        if (!confirm('آیا از تایید این خریدار و رد کردن بقیه درخواست‌ها مطمئن هستید؟ این عمل غیرقابل بازگشت است.')) {
-            return;
-        }
-        try {
-            const response = await fetch(`${API_BACKEND_URL}/api/approve-request`, {
+
+        function approveRequest(requestId, sellerNid) {
+            fetch('/api/approve-request', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ request_id: requestId, seller_nid: currentNationalId })
-            });
-            const result = await response.json();
-            if (response.ok) {
-                showModal('موفقیت', result.message, true);
-                const modal = document.getElementById('message_modal');
-                modal.addEventListener('close', () => { location.reload(); }, { once: true });
-            } else {
-                showModal('خطا', result.error, false);
-            }
-        } catch (error) {
-            showModal('خطا', 'خطا در ارتباط با سرور.', false);
+                body: JSON.stringify({ request_id: parseInt(requestId), seller_nid: sellerNid })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert(data.error);
+                    } else {
+                        alert(data.message);
+                        window.location.reload();
+                    }
+                })
+                .catch(error => console.error('Error approving request:', error));
         }
-    }
 
-    async function rejectRequest(requestId) {
-        if (!confirm('آیا از رد کردن این درخواست خرید مطمئن هستید؟')) {
-            return;
-        }
-        try {
-            const response = await fetch(`${API_BACKEND_URL}/api/reject-request`, {
+        function rejectRequest(requestId, sellerNid) {
+            fetch('/api/reject-request', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ request_id: requestId, seller_nid: currentNationalId })
-            });
-            const result = await response.json();
-            if (response.ok) {
-                showModal('انجام شد', result.message, true);
-                const modal = document.getElementById('message_modal');
-                modal.addEventListener('close', () => { location.reload(); }, { once: true });
-            } else {
-                showModal('خطا', result.error, false);
-            }
-        } catch (error) {
-            showModal('خطا', 'خطا در ارتباط با سرور.', false);
+                body: JSON.stringify({ request_id: parseInt(requestId), seller_nid: sellerNid })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert(data.error);
+                    } else {
+                        alert(data.message);
+                        window.location.reload();
+                    }
+                })
+                .catch(error => console.error('Error rejecting request:', error));
         }
-    }
-</script>
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const offerId = urlParams.get('id');
+        const nationalId = urlParams.get('nid');
+        loadOfferDetails(offerId, nationalId);
+    </script>
 </body>
 </html>
