@@ -42,25 +42,18 @@ linking_tokens = {}
 # --- مسیرهای اصلی ---
 @app.route('/')
 def serve_index(): return send_from_directory(app.static_folder, 'index.html')
-
 @app.route('/profile.html')
 def serve_profile(): return send_from_directory(app.static_folder, 'profile.html')
-
 @app.route('/dashboard.html')
 def serve_dashboard(): return send_from_directory(app.static_folder, 'dashboard.html')
-
 @app.route('/sell_share.html')
 def serve_sell_share(): return send_from_directory(app.static_folder, 'sell_share.html')
-
 @app.route('/view_offers.html')
 def serve_view_offers(): return send_from_directory(app.static_folder, 'view_offers.html')
-
 @app.route('/offer_detail.html')
 def serve_offer_detail(): return send_from_directory(app.static_folder, 'offer_detail.html')
-
 @app.route('/manage_offer.html')
 def serve_manage_offer(): return send_from_directory(app.static_folder, 'manage_offer.html')
-
 @app.route('/health-check')
 def health_check(): return '', 204
 
@@ -209,7 +202,21 @@ def get_my_offer_with_requests(offer_id):
             return jsonify({"error": "این پیشنهاد متعلق به شما نیست یا یافت نشد."}), 404
         offer_details = offer_res.data[0]
         requests_res = supabase.table('purchase_requests').select('*, member:buyer_national_id (first_name, last_name)').eq('offer_id', offer_id).execute()
-        offer_details['purchase_requests'] = requests_res.data if requests_res.data else []
+        
+        # --- بخش اصلاح شده ---
+        # ترجمه وضعیت‌ها در سمت سرور انجام می‌شود
+        status_map = {'active': 'فعال', 'pending': 'در حال بررسی', 'approved': 'تایید شده', 'rejected': 'رد شده', 'completed': 'تکمیل شده', 'cancelled': 'لغو شده'}
+        offer_details['status'] = status_map.get(offer_details['status'], offer_details['status'])
+        
+        translated_requests = []
+        if requests_res.data:
+            for req in requests_res.data:
+                req['status'] = status_map.get(req['status'], req['status'])
+                translated_requests.append(req)
+        
+        offer_details['purchase_requests'] = translated_requests
+        # --- پایان بخش اصلاح شده ---
+        
         return jsonify(offer_details)
     except Exception as e:
         print(f"Error fetching offer with requests: {e}")
