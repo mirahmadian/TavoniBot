@@ -83,14 +83,13 @@
             const data = await response.json();
             loadingEl.classList.add('hidden');
             contentEl.classList.remove('hidden');
-
             if (response.ok) {
                 document.getElementById('offer_percentage').textContent = data.percentage_to_sell;
                 document.getElementById('offer_price').textContent = data.price.toLocaleString('fa-IR');
                 const statusEl = document.getElementById('offer_status');
-                const offerStatusMap = {'active': 'فعال', 'pending': 'در حال معامله', 'completed': 'تکمیل شده', 'cancelled': 'لغو شده'};
-                const offerPersianStatus = offerStatusMap[data.status] || data.status;
-                statusEl.textContent = offerPersianStatus;
+                const statusMap = {'active': 'فعال', 'pending': 'در حال معامله', 'completed': 'تکمیل شده', 'cancelled': 'لغو شده'};
+                const persianStatus = statusMap[data.status] || data.status;
+                statusEl.textContent = persianStatus;
                 if(data.status === 'active') { statusEl.classList.add('badge-success'); }
                 else { statusEl.classList.add('badge-warning'); }
 
@@ -104,18 +103,19 @@
                         const reqStatusMap = {'pending': 'در حال بررسی', 'approved': 'تایید شده', 'rejected': 'رد شده'};
                         const reqPersianStatus = reqStatusMap[req.status] || req.status;
                         
-                        let actionButtonsHTML = '';
+                        let actionButtons = '';
+                        // اگر پیشنهاد فروش هنوز فعال باشد و درخواست خرید در حال بررسی باشد، دکمه‌ها را نمایش بده
                         if (data.status === 'active' && req.status === 'pending') {
-                            actionButtonsHTML = `
+                            actionButtons = `
                                 <div class="join">
-                                    <button class="btn btn-sm join-item btn-success approve-btn" data-request-id="${req.id}">تأیید</button>
-                                    <button class="btn btn-sm join-item btn-error reject-btn" data-request-id="${req.id}">رد کردن</button>
+                                    <button onclick="approveRequest(${req.id})" class="btn btn-sm join-item btn-success">تأیید</button>
+                                    <button onclick="rejectRequest(${req.id})" class="btn btn-sm join-item btn-error">رد کردن</button>
                                 </div>
                             `;
                         } else if (req.status === 'approved') {
-                            actionButtonsHTML = `<span class="text-success font-bold">تایید شده</span>`;
+                            actionButtons = `<span class="text-success font-bold">تایید شده</span>`;
                         } else if (req.status === 'rejected') {
-                            actionButtonsHTML = `<span class="text-error font-bold">رد شده</span>`;
+                            actionButtons = `<span class="text-error font-bold">رد شده</span>`;
                         }
 
                         const reqHTML = `
@@ -125,14 +125,11 @@
                                     <p class="text-sm">تاریخ درخواست: ${reqDate}</p>
                                     <p class="text-sm text-gray-500">وضعیت: ${reqPersianStatus}</p>
                                 </div>
-                                <div>${actionButtonsHTML}</div>
+                                <div>${actionButtons}</div>
                             </div>
                         `;
                         requestsContainer.innerHTML += reqHTML;
                     });
-                    
-                    // پس از ساختن تمام دکمه‌ها، event listener ها را به آن‌ها متصل می‌کنیم
-                    addEventListenersToButtons();
                 }
             } else {
                 document.getElementById('content').innerHTML = `<p class="text-center text-error">${data.error}</p>`;
@@ -143,22 +140,6 @@
         }
     }
     
-    function addEventListenersToButtons() {
-        document.querySelectorAll('.approve-btn').forEach(button => {
-            button.addEventListener('click', (e) => {
-                const requestId = e.target.getAttribute('data-request-id');
-                approveRequest(requestId);
-            });
-        });
-
-        document.querySelectorAll('.reject-btn').forEach(button => {
-            button.addEventListener('click', (e) => {
-                const requestId = e.target.getAttribute('data-request-id');
-                rejectRequest(requestId);
-            });
-        });
-    }
-
     async function approveRequest(requestId) {
         if (!confirm('آیا از تایید این خریدار و رد کردن بقیه درخواست‌ها مطمئن هستید؟ این عمل غیرقابل بازگشت است.')) {
             return;
@@ -167,7 +148,7 @@
             const response = await fetch(`${API_BACKEND_URL}/api/approve-request`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ request_id: parseInt(requestId), seller_nid: currentNationalId })
+                body: JSON.stringify({ request_id: requestId, seller_nid: currentNationalId })
             });
             const result = await response.json();
             if (response.ok) {
@@ -190,7 +171,7 @@
             const response = await fetch(`${API_BACKEND_URL}/api/reject-request`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ request_id: parseInt(requestId), seller_nid: currentNationalId })
+                body: JSON.stringify({ request_id: requestId, seller_nid: currentNationalId })
             });
             const result = await response.json();
             if (response.ok) {
