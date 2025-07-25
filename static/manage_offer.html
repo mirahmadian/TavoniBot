@@ -87,10 +87,10 @@
                 document.getElementById('offer_percentage').textContent = data.percentage_to_sell;
                 document.getElementById('offer_price').textContent = data.price.toLocaleString('fa-IR');
                 const statusEl = document.getElementById('offer_status');
-                
-                statusEl.textContent = data.status; // نمایش مستقیم متن فارسی از سرور
-
-                if(data.status === 'فعال') { statusEl.classList.add('badge-success'); }
+                const statusMap = {'active': 'فعال', 'pending': 'در حال بررسی', 'completed': 'تکمیل شده', 'cancelled': 'لغو شده'};
+                const offerPersianStatus = statusMap[data.status] || data.status;
+                statusEl.textContent = offerPersianStatus;
+                if(data.status === 'active') { statusEl.classList.add('badge-success'); }
                 else { statusEl.classList.add('badge-warning'); }
 
                 if (data.purchase_requests.length === 0) {
@@ -98,20 +98,29 @@
                 } else {
                     requestsContainer.innerHTML = '';
                     data.purchase_requests.forEach(req => {
+                        // --- بخش دیباگ ---
+                        console.log("Processing request object:", req);
+                        console.log("Original request status:", req.status);
+                        const reqStatusMap_Debug = {'pending': 'در حال بررسی', 'approved': 'تایید شده', 'rejected': 'رد شده'};
+                        const reqPersianStatus_Debug = reqStatusMap_Debug[req.status] || req.status;
+                        console.log("Translated request status:", reqPersianStatus_Debug);
+                        // --- پایان بخش دیباگ ---
+
                         const buyerName = `${req.member.first_name} ${req.member.last_name}`;
                         const reqDate = new Date(req.created_at).toLocaleDateString('fa-IR');
                         
                         let actionButtons = '';
-                        // اگر وضعیت اصلی پیشنهاد "فعال" باشد و درخواست "در حال بررسی" باشد
-                        if (data.status === 'فعال' && req.status === 'در حال بررسی') {
+                        if (data.status === 'active' && req.status === 'pending') {
                             actionButtons = `
                                 <div class="join">
-                                    <button class="btn btn-sm join-item btn-success approve-btn" data-request-id="${req.id}">تأیید</button>
-                                    <button class="btn btn-sm join-item btn-error reject-btn" data-request-id="${req.id}">رد کردن</button>
+                                    <button onclick="approveRequest(${req.id})" class="btn btn-sm join-item btn-success">تأیید</button>
+                                    <button onclick="rejectRequest(${req.id})" class="btn btn-sm join-item btn-error">رد کردن</button>
                                 </div>
                             `;
-                        } else {
-                           actionButtons = `<span class="font-bold">${req.status}</span>`;
+                        } else if (req.status === 'approved') {
+                            actionButtons = `<span class="text-success font-bold">تایید شده</span>`;
+                        } else if (req.status === 'rejected') {
+                            actionButtons = `<span class="text-error font-bold">رد شده</span>`;
                         }
 
                         const reqHTML = `
@@ -119,14 +128,13 @@
                                 <div>
                                     <p><strong>نام خریدار:</strong> ${buyerName}</p>
                                     <p class="text-sm">تاریخ درخواست: ${reqDate}</p>
-                                    <p class="text-sm text-gray-500">وضعیت: ${req.status}</p>
+                                    <p class="text-sm text-gray-500">وضعیت: ${reqPersianStatus_Debug} (Debug: ${req.status})</p>
                                 </div>
                                 <div>${actionButtons}</div>
                             </div>
                         `;
                         requestsContainer.innerHTML += reqHTML;
                     });
-                    addEventListenersToButtons();
                 }
             } else {
                 document.getElementById('content').innerHTML = `<p class="text-center text-error">${data.error}</p>`;
@@ -137,21 +145,6 @@
         }
     }
     
-    function addEventListenersToButtons() {
-        document.querySelectorAll('.approve-btn').forEach(button => {
-            button.addEventListener('click', (e) => {
-                const requestId = e.target.getAttribute('data-request-id');
-                approveRequest(requestId);
-            });
-        });
-        document.querySelectorAll('.reject-btn').forEach(button => {
-            button.addEventListener('click', (e) => {
-                const requestId = e.target.getAttribute('data-request-id');
-                rejectRequest(requestId);
-            });
-        });
-    }
-
     async function approveRequest(requestId) {
         if (!confirm('آیا از تایید این خریدار و رد کردن بقیه درخواست‌ها مطمئن هستید؟ این عمل غیرقابل بازگشت است.')) {
             return;
@@ -160,7 +153,7 @@
             const response = await fetch(`${API_BACKEND_URL}/api/approve-request`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ request_id: parseInt(requestId), seller_nid: currentNationalId })
+                body: JSON.stringify({ request_id: requestId, seller_nid: currentNationalId })
             });
             const result = await response.json();
             if (response.ok) {
@@ -183,7 +176,7 @@
             const response = await fetch(`${API_BACKEND_URL}/api/reject-request`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ request_id: parseInt(requestId), seller_nid: currentNationalId })
+                body: JSON.stringify({ request_id: requestId, seller_nid: currentNationalId })
             });
             const result = await response.json();
             if (response.ok) {
