@@ -11,19 +11,15 @@ import secrets
 import sys
 
 load_dotenv()
-
-# --- بررسی امنیتی اولیه ---
 required_vars = ["BOT_TOKEN", "SUPABASE_URL", "SUPABASE_KEY"]
-missing_vars = [var for var in required_vars if os.environ.get(var) is None]
-if missing_vars:
-    print(f"FATAL ERROR: The following environment variables are missing: {', '.join(missing_vars)}")
+if any(os.environ.get(var) is None for var in required_vars):
+    print(f"FATAL ERROR: Missing one or more environment variables: {', '.join(required_vars)}")
     sys.exit(1)
-print("All critical environment variables are set. Proceeding...")
+print("All critical environment variables are set.")
 
 app = Flask(__name__, static_folder='static')
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-# --- تنظیمات و اتصالات ---
 OTP_EXPIRATION_SECONDS = 120
 try:
     BOT_TOKEN = os.environ.get("BOT_TOKEN")
@@ -39,7 +35,7 @@ except Exception as e:
 otp_storage = {}
 linking_tokens = {}
 
-# --- مسیرهای اصلی ---
+# --- HTML Serving Routes ---
 @app.route('/')
 def serve_index(): return send_from_directory(app.static_folder, 'index.html')
 @app.route('/profile.html')
@@ -58,40 +54,24 @@ def serve_manage_offer(): return send_from_directory(app.static_folder, 'manage_
 def health_check(): return '', 204
 
 # --- API Endpoints ---
-@app.route('/get-user-profile')
-def get_user_profile():
-    national_id = request.args.get('nid')
-    if not national_id: return jsonify({"error": "کد ملی ارسال نشده است."}), 400
-    try:
-        response = supabase.table('member').select("first_name, last_name, nationalcode, phonenumber, address, postal_code").eq('nationalcode', national_id).execute()
-        if response.data:
-            user_data = response.data[0]
-            if 'nationalcode' in user_data: user_data['national_id'] = user_data.pop('nationalcode')
-            if 'phonenumber' in user_data: user_data['phone_number'] = user_data.pop('phonenumber')
-            return jsonify(user_data)
-        else: return jsonify({"error": "کاربری با این کد ملی یافت نشد."}), 404
-    except Exception as e: return jsonify({"error": f"Database Error: {str(e)}"}), 500
-
-@app.route('/get-member-data')
+@app.route('/api/member-data')
 def get_member_data():
     national_id = request.args.get('nid')
     if not national_id: return jsonify({"error": "کد ملی ارسال نشده است."}), 400
     try:
-        member_res = supabase.table('member').select("first_name, last_name, share_percentage").eq('nationalcode', national_id).execute()
+        member_res = supabase.table('member').select("first_name, last_name, share_percentage, nationalcode, phonenumber, address, postal_code").eq('nationalcode', national_id).execute()
         if not member_res.data:
             return jsonify({"error": "کاربری با این کد ملی یافت نشد."}), 404
         member_data = member_res.data[0]
-        total_shares = member_data.get('share_percentage', 100)
         offers_res = supabase.table('sale_offers').select('percentage_to_sell').eq('seller_national_id', national_id).eq('status', 'active').execute()
         listed_percentage = sum(offer['percentage_to_sell'] for offer in offers_res.data)
-        available_percentage = total_shares - listed_percentage
-        member_data['available_share_percentage'] = available_percentage
+        member_data['available_share_percentage'] = member_data.get('share_percentage', 100) - listed_percentage
         return jsonify(member_data)
     except Exception as e:
-        print(f"Dashboard Data Error: {e}")
-        return jsonify({"error": "خطا در دریافت اطلاعات."}), 500
+        print(f"Dashboard/Profile Data Error: {e}")
+        return jsonify({"error": "خطا در دریافت اطلاعات کاربر."}), 500
 
-@app.route('/start-login', methods=['POST'])
+@app.route('/api/start-login', methods=['POST'])
 def start_login():
     data = request.get_json(silent=True)
     if not data: return jsonify({"error": "درخواست نامعتبر است."}), 400
@@ -121,7 +101,7 @@ def start_login():
         print(f"Login Start Error: {e}")
         return jsonify({"error": "خطا در بررسی اطلاعات کاربر."}), 500
 
-@app.route('/update-user-profile', methods=['POST'])
+@app.route('/api/update-profile', methods=['POST'])
 def update_user_profile():
     data = request.get_json(silent=True)
     if not data: return jsonify({"error": "درخواست نامعتبر است."}), 400
@@ -129,7 +109,7 @@ def update_user_profile():
     postal_code = data.get('postal_code')
     address = data.get('address')
     if not all([national_id, postal_code, address]) or postal_code == '' or address == '':
-        return jsonify({"error": "تمام فیلدها (کد ملی، کد پستی، آدرس) الزامی هستند."}), 400
+        return jsonify({"error": "تمام فیلدها الزامی هستند."}), 400
     try:
         supabase.table('member').update({"postal_code": postal_code, "address": address}).eq('nationalcode', national_id).execute()
         return jsonify({"message": "اطلاعات شما با موفقیت ذخیره شد."})
@@ -195,7 +175,6 @@ def get_my_offers():
 @app.route('/api/my-offers/<int:offer_id>')
 def get_my_offer_with_requests(offer_id):
     national_id = request.args.get('nid')
-    print(f"--- DEBUG: Fetching details for offer {offer_id} for user {national_id} ---") # خط دیباگ جدید
     if not national_id: return jsonify({"error": "شناسه کاربر نامشخص است."}), 400
     try:
         offer_res = supabase.table('sale_offers').select('*').eq('id', offer_id).eq('seller_national_id', national_id).execute()
@@ -203,39 +182,19 @@ def get_my_offer_with_requests(offer_id):
             return jsonify({"error": "این پیشنهاد متعلق به شما نیست یا یافت نشد."}), 404
         offer_details = offer_res.data[0]
         requests_res = supabase.table('purchase_requests').select('*, member:buyer_national_id (first_name, last_name)').eq('offer_id', offer_id).execute()
-        
         status_map = {'active': 'فعال', 'pending': 'در حال بررسی', 'approved': 'تایید شده', 'rejected': 'رد شده', 'completed': 'تکمیل شده', 'cancelled': 'لغو شده'}
         offer_details['status'] = status_map.get(str(offer_details.get('status', '')).strip(), offer_details.get('status', ''))
-        
         translated_requests = []
         if requests_res.data:
             for req in requests_res.data:
                 req_status_en = str(req.get('status', '')).strip()
                 req['status'] = status_map.get(req_status_en, req_status_en)
                 translated_requests.append(req)
-        
         offer_details['purchase_requests'] = translated_requests
-        print(f"--- DEBUG: Returning data: {offer_details} ---") # خط دیباگ جدید
         return jsonify(offer_details)
     except Exception as e:
         print(f"Error fetching offer with requests: {e}")
         return jsonify({"error": "خطا در دریافت اطلاعات مدیریت پیشنهاد."}), 500
-
-@app.route('/api/sale-offers/<int:offer_id>')
-def get_offer_details(offer_id):
-    try:
-        response = supabase.table('sale_offers').select('*, member:seller_national_id ( first_name, last_name )').eq('id', offer_id).execute()
-        if response.data:
-            offer = response.data[0]
-            if offer['percentage_to_sell'] > 0:
-                offer['normalized_price'] = int((offer['price'] / offer['percentage_to_sell']) * 100)
-            else: offer['normalized_price'] = 0
-            return jsonify(offer)
-        else:
-            return jsonify({"error": "پیشنهاد مورد نظر یافت نشد."}), 404
-    except Exception as e:
-        print(f"Get Offer Detail Error: {e}")
-        return jsonify({"error": "خطا در دریافت اطلاعات پیشنهاد."}), 500
         
 @app.route('/api/purchase-requests', methods=['POST'])
 def create_purchase_request():
