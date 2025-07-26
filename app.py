@@ -1,3 +1,4 @@
+# app.py
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from supabase import create_client, Client
@@ -194,6 +195,7 @@ def get_my_offers():
 @app.route('/api/my-offers/<int:offer_id>')
 def get_my_offer_with_requests(offer_id):
     national_id = request.args.get('nid')
+    print(f"--- DEBUG: Fetching details for offer {offer_id} for user {national_id} ---") # خط دیباگ جدید
     if not national_id: return jsonify({"error": "شناسه کاربر نامشخص است."}), 400
     try:
         offer_res = supabase.table('sale_offers').select('*').eq('id', offer_id).eq('seller_national_id', national_id).execute()
@@ -203,15 +205,17 @@ def get_my_offer_with_requests(offer_id):
         requests_res = supabase.table('purchase_requests').select('*, member:buyer_national_id (first_name, last_name)').eq('offer_id', offer_id).execute()
         
         status_map = {'active': 'فعال', 'pending': 'در حال بررسی', 'approved': 'تایید شده', 'rejected': 'رد شده', 'completed': 'تکمیل شده', 'cancelled': 'لغو شده'}
-        offer_details['status'] = status_map.get(str(offer_details['status']).strip(), offer_details['status'])
+        offer_details['status'] = status_map.get(str(offer_details.get('status', '')).strip(), offer_details.get('status', ''))
         
         translated_requests = []
         if requests_res.data:
             for req in requests_res.data:
-                req['status'] = status_map.get(str(req['status']).strip(), req['status'])
+                req_status_en = str(req.get('status', '')).strip()
+                req['status'] = status_map.get(req_status_en, req_status_en)
                 translated_requests.append(req)
         
         offer_details['purchase_requests'] = translated_requests
+        print(f"--- DEBUG: Returning data: {offer_details} ---") # خط دیباگ جدید
         return jsonify(offer_details)
     except Exception as e:
         print(f"Error fetching offer with requests: {e}")
