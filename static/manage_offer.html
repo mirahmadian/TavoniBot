@@ -17,7 +17,6 @@
         <div id="offer-details">
             <p class="text-center">در حال بارگذاری اطلاعات...</p>
         </div>
-        <button id="manageOfferBtn" class="btn btn-primary w-full mt-4">مدیریت پیشنهاد</button>
         <p id="msg" class="text-sm text-red-500 mt-2 text-center"></p>
     </div>
     <dialog id="message_modal" class="modal">
@@ -49,7 +48,7 @@
             const offerDetails = document.getElementById('offer-details');
             const msgEl = document.getElementById('msg');
             try {
-                const response = await fetch(`${API_BACKEND_URL}/api/get-member-data?nid=${nationalId}`, {
+                const response = await fetch(`${API_BACKEND_URL}/api/my-offers/${offerId}`, {
                     method: 'GET',
                     headers: { 'Content-Type': 'application/json' }
                 });
@@ -58,41 +57,68 @@
                     offerDetails.innerHTML = `
                         <p>شناسه پیشنهاد: ${offerId}</p>
                         <p>کد ملی: ${nationalId}</p>
-                        <p>نام: ${data.name || 'نامشخص'}</p>
+                        <p>درصد سهام: ${data.percentage_to_sell || 'نامشخص'}%</p>
+                        <p>قیمت: ${data.price || 'نامشخص'}</p>
                         <p>وضعیت: ${data.status || 'نامشخص'}</p>
+                        <h3 class="font-bold mt-4">درخواست‌های خرید:</h3>
+                        ${data.purchase_requests && data.purchase_requests.length > 0 ? 
+                            data.purchase_requests.map(req => `
+                                <div class="border p-2 my-2">
+                                    <p>نام خریدار: ${req.member?.first_name || 'نامشخص'} ${req.member?.last_name || ''}</p>
+                                    <p>وضعیت: ${req.status}</p>
+                                    <button class="btn btn-success btn-sm mt-2" onclick="approveRequest(${req.id})">تایید</button>
+                                    <button class="btn btn-error btn-sm mt-2" onclick="rejectRequest(${req.id})">رد</button>
+                                </div>
+                            `).join('') : '<p>هیچ درخواست خریدی وجود ندارد.</p>'}
                     `;
                 } else {
-                    msgEl.textContent = 'خطا در بارگذاری اطلاعات پیشنهاد.';
+                    const errorData = await response.json();
+                    msgEl.textContent = errorData.error || 'خطا در بارگذاری اطلاعات پیشنهاد.';
                 }
             } catch (error) {
                 showModal('خطا', 'خطا در ارتباط با سرور.', false);
             }
         }
 
-        document.getElementById('manageOfferBtn').addEventListener('click', async () => {
+        async function approveRequest(requestId) {
             const msgEl = document.getElementById('msg');
-            const manageBtn = document.getElementById('manageOfferBtn');
-            manageBtn.disabled = true;
-            manageBtn.textContent = 'در حال بررسی...';
             try {
-                const response = await fetch(`${API_BACKEND_URL}/api/manage-offer`, {
+                const response = await fetch(`${API_BACKEND_URL}/api/approve-request`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ offer_id: offerId, national_id: nationalId })
+                    body: JSON.stringify({ request_id: requestId, seller_nid: nationalId })
                 });
                 const result = await response.json();
                 if (response.ok) {
-                    showModal('موفق', 'پیشنهاد با موفقیت مدیریت شد.', true);
+                    showModal('موفق', 'درخواست با موفقیت تایید شد.', true);
+                    loadOfferData(); // به‌روزرسانی صفحه
                 } else {
-                    msgEl.textContent = result.error || 'خطا در مدیریت پیشنهاد.';
+                    msgEl.textContent = result.error || 'خطا در تایید درخواست.';
                 }
             } catch (error) {
                 showModal('خطا', 'خطا در ارتباط با سرور.', false);
-            } finally {
-                manageBtn.disabled = false;
-                manageBtn.textContent = 'مدیریت پیشنهاد';
             }
-        });
+        }
+
+        async function rejectRequest(requestId) {
+            const msgEl = document.getElementById('msg');
+            try {
+                const response = await fetch(`${API_BACKEND_URL}/api/reject-request`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ request_id: requestId, seller_nid: nationalId })
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    showModal('موفق', 'درخواست با موفقیت رد شد.', true);
+                    loadOfferData(); // به‌روزرسانی صفحه
+                } else {
+                    msgEl.textContent = result.error || 'خطا در رد درخواست.';
+                }
+            } catch (error) {
+                showModal('خطا', 'خطا در ارتباط با سرور.', false);
+            }
+        }
 
         // بارگذاری اطلاعات هنگام لود صفحه
         loadOfferData();
