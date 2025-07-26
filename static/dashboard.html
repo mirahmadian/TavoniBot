@@ -17,8 +17,14 @@
         <div id="user-info">
             <p class="text-center">در حال بارگذاری اطلاعات...</p>
         </div>
+        <div id="offers-list" class="mt-6">
+            <p class="text-center">در حال بارگذاری پیشنهادات...</p>
+        </div>
         <p id="msg" class="text-sm text-red-500 mt-2 text-center"></p>
-        <a href="/manage_offer.html?id=15&nid={{nationalId}}" class="btn btn-primary w-full mt-4">مدیریت پیشنهاد</a>
+        <div class="flex justify-between mt-4">
+            <button id="sellIntentBtn" class="btn btn-success w-5/12 mr-1">قصد فروش دارم</button>
+            <button id="buyIntentBtn" class="btn btn-primary w-5/12 ml-1">قصد خرید دارم</button>
+        </div>
     </div>
     <dialog id="message_modal" class="modal">
         <div class="modal-box text-center">
@@ -48,6 +54,10 @@
             const welcomeMessage = document.getElementById('welcomeMessage');
             const userInfo = document.getElementById('user-info');
             const msgEl = document.getElementById('msg');
+            if (!nationalId) {
+                msgEl.textContent = 'شناسه کاربر نامشخص است.';
+                return;
+            }
             try {
                 const response = await fetch(`${API_BACKEND_URL}/api/member-data?nid=${nationalId}`, {
                     method: 'GET',
@@ -68,8 +78,60 @@
             }
         }
 
+        async function loadOffers() {
+            const offersList = document.getElementById('offers-list');
+            const msgEl = document.getElementById('msg');
+            if (!nationalId) {
+                msgEl.textContent = 'شناسه کاربر نامشخص است.';
+                return;
+            }
+            try {
+                const response = await fetch(`${API_BACKEND_URL}/api/my-offers?nid=${nationalId}`, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    offersList.innerHTML = `
+                        <h3 class="font-bold text-center mb-2">پیشنهادات شما:</h3>
+                        ${data.offers && data.offers.length > 0 ? 
+                            data.offers.map(offer => `
+                                <div class="border p-2 my-2">
+                                    <p>شناسه: ${offer.id}</p>
+                                    <p>درصد سهام: ${offer.percentage_to_sell}%</p>
+                                    <p>قیمت: ${offer.price}</p>
+                                    <a href="/manage_offer.html?id=${offer.id}&nid=${nationalId}" class="btn btn-sm btn-primary mt-1">مدیریت</a>
+                                </div>
+                            `).join('') : '<p>هیچ پیشنهادی ثبت نشده است.</p>'}
+                    `;
+                } else {
+                    const errorData = await response.json();
+                    msgEl.textContent = errorData.error || 'خطا در بارگذاری پیشنهادات.';
+                }
+            } catch (error) {
+                showModal('خطا', 'خطا در ارتباط با سرور.', false);
+            }
+        }
+
+        document.getElementById('sellIntentBtn').addEventListener('click', () => {
+            if (!nationalId) {
+                document.getElementById('msg').textContent = 'شناسه کاربر نامشخص است.';
+                return;
+            }
+            window.location.href = `/sell.html?nid=${nationalId}`;
+        });
+
+        document.getElementById('buyIntentBtn').addEventListener('click', () => {
+            if (!nationalId) {
+                document.getElementById('msg').textContent = 'شناسه کاربر نامشخص است.';
+                return;
+            }
+            window.location.href = `/buy.html?nid=${nationalId}`;
+        });
+
         // بارگذاری اطلاعات هنگام لود صفحه
         loadUserData();
+        loadOffers();
     </script>
 </body>
 </html>
