@@ -11,15 +11,19 @@ import secrets
 import sys
 
 load_dotenv()
+
+# --- بررسی امنیتی اولیه ---
 required_vars = ["BOT_TOKEN", "SUPABASE_URL", "SUPABASE_KEY"]
-if any(os.environ.get(var) is None for var in required_vars):
-    print(f"FATAL ERROR: Missing one or more environment variables: {', '.join(required_vars)}")
+missing_vars = [var for var in required_vars if os.environ.get(var) is None]
+if missing_vars:
+    print(f"FATAL ERROR: The following environment variables are missing: {', '.join(missing_vars)}")
     sys.exit(1)
-print("All critical environment variables are set.")
+print("All critical environment variables are set. Proceeding...")
 
 app = Flask(__name__, static_folder='static')
 CORS(app, resources={r"/*": {"origins": "*"}})
 
+# --- تنظیمات و اتصالات ---
 OTP_EXPIRATION_SECONDS = 120
 try:
     BOT_TOKEN = os.environ.get("BOT_TOKEN")
@@ -35,7 +39,7 @@ except Exception as e:
 otp_storage = {}
 linking_tokens = {}
 
-# --- HTML Serving Routes ---
+# --- مسیرهای اصلی ---
 @app.route('/')
 def serve_index(): return send_from_directory(app.static_folder, 'index.html')
 @app.route('/profile.html')
