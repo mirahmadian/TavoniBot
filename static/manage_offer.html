@@ -88,7 +88,7 @@
                 document.getElementById('offer_price').textContent = data.price.toLocaleString('fa-IR');
                 const statusEl = document.getElementById('offer_status');
                 
-                // Map status to Persian
+                // تبدیل وضعیت به فارسی
                 const statusMap = {
                     'active': 'فعال',
                     'pending': 'در حال بررسی',
@@ -108,15 +108,16 @@
                     noRequestsEl.classList.remove('hidden');
                 } else {
                     requestsContainer.innerHTML = '';
+                    
+                    // تبدیل وضعیت درخواست‌ها به فارسی
+                    const reqStatusMap = {
+                        'pending': 'در حال بررسی',
+                        'approved': 'تایید شده',
+                        'rejected': 'رد شده'
+                    };
+                    
                     data.purchase_requests.forEach(req => {
-                        // Map request status to Persian
-                        const reqStatusMap = {
-                            'pending': 'در حال بررسی',
-                            'approved': 'تایید شده',
-                            'rejected': 'رد شده'
-                        };
                         const reqPersianStatus = reqStatusMap[req.status] || req.status;
-                        
                         const buyerName = `${req.member.first_name} ${req.member.last_name}`;
                         const reqDate = new Date(req.created_at).toLocaleDateString('fa-IR');
                         
