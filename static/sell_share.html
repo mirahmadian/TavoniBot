@@ -83,7 +83,8 @@
 
 <script>
     const API_BACKEND_URL = "https://tavonibot.onrender.com";
-    let currentNationalId = '';
+    const urlParams = new URLSearchParams(window.location.search);
+    const nationalId = urlParams.get('nid');
 
     // تابع نمایش پاپ‌آپ (Modal)
     function showModal(title, message, isSuccess) {
@@ -148,7 +149,7 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    national_id: currentNationalId,
+                    national_id: nationalId,
                     percentage_to_sell: parseInt(percentage),
                     price: parseInt(price)
                 })
@@ -159,7 +160,7 @@
                 const modal = document.getElementById('message_modal');
                 showModal('موفقیت', result.message, true);
                 modal.addEventListener('close', () => {
-                    window.location.href = `dashboard.html?nid=${currentNationalId}`;
+                    window.location.href = `dashboard.html?nid=${nationalId}`;
                 }, { once: true });
             } else {
                 showModal('خطا', result.error, false);
@@ -175,7 +176,10 @@
     // تابع برای گرفتن اطلاعات کاربر از سرور
     async function fetchMemberData() {
         try {
-            const response = await fetch(`${API_BACKEND_URL}/get-member-data?nid=${currentNationalId}`);
+            const response = await fetch(`${API_BACKEND_URL}/api/member-data?nid=${nationalId}`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            });
             const data = await response.json();
             if (response.ok) {
                 document.getElementById('share_percentage').textContent = data.available_share_percentage;
@@ -189,9 +193,7 @@
 
     // این تابع هنگام بارگذاری صفحه اجرا می‌شود
     window.onload = function() {
-        const urlParams = new URLSearchParams(window.location.search);
-        currentNationalId = urlParams.get('nid');
-        document.getElementById('dashboard_link').href = `dashboard.html?nid=${currentNationalId}`;
+        document.getElementById('dashboard_link').href = `dashboard.html?nid=${nationalId}`;
         fetchMemberData();
     };
 
