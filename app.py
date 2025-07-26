@@ -12,7 +12,7 @@ import sys
 
 load_dotenv()
 
-# --- بررسی امنیتی اولیه ---
+# ---- بررسی امنیتی اولیه ----
 required_vars = ["BOT_TOKEN", "SUPABASE_URL", "SUPABASE_KEY"]
 missing_vars = [var for var in required_vars if os.environ.get(var) is None]
 if missing_vars:
