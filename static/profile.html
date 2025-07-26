@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>تکمیل پروفایل - سامانه تعاونی</title>
+    <title>تکمیل اطلاعات پروفایل</title>
     <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.20/dist/full.min.css" rel="stylesheet" />
     <link href="https://cdn.jsdelivr.net/npm/@fontsource/vazirmatn@latest/index.css" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
@@ -11,39 +11,36 @@
         body { font-family: Vazirmatn, sans-serif; background: linear-gradient(to right, #a8e6cf, #dcedc1); }
     </style>
 </head>
-<body class="flex items-center justify-center min-h-screen p-4">
-    <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-lg">
+<body class="flex items-center justify-center min-h-screen">
+    <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
         <h1 class="text-2xl font-bold text-center mb-6">تکمیل اطلاعات پروفایل</h1>
-        <p id="loading_message" class="text-center">در حال بارگذاری اطلاعات...</p>
-        
-        <div id="profile_form" class="hidden">
-            <div class="mb-4">
-                <label class="block mb-2 font-semibold">نام و نام خانوادگی:</label>
-                <input type="text" id="fullName" class="input input-bordered w-full bg-gray-100" disabled>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div>
-                    <label class="block mb-2 font-semibold">کد ملی:</label>
-                    <input type="text" id="nationalId" class="input input-bordered w-full bg-gray-100" disabled>
-                </div>
-                <div>
-                    <label class="block mb-2 font-semibold">شماره موبایل:</label>
-                    <input type="text" id="phone" class="input input-bordered w-full bg-gray-100" disabled>
-                </div>
-            </div>
-            <hr class="my-6">
-            <div class="mb-4">
-                <label class="label"><span class="label-text font-semibold">کد پستی:</span></label>
-                <input type="text" id="postalCode" class="input input-bordered w-full" placeholder="کد پستی ۱۰ رقمی خود را وارد کنید">
-            </div>
-            <div class="mb-4">
-                <label class="label"><span class="label-text font-semibold">آدرس:</span></label>
-                <textarea id="address" class="textarea textarea-bordered w-full" rows="3" placeholder="آدرس دقیق محل سکونت"></textarea>
-            </div>
-            <button id="saveBtn" onclick="updateProfile()" class="btn btn-primary w-full mt-4">ذخیره اطلاعات و ورود به داشبورد</button>
+        <div id="user-info">
+            <p class="text-center">در حال بارگذاری اطلاعات...</p>
         </div>
+        <form id="profile-form" class="mt-6">
+            <div class="form-control w-full mb-4">
+                <label class="label"><span class="label-text">نام و نام خانوادگی:</span></label>
+                <input type="text" id="full_name" class="input input-bordered w-full" disabled>
+            </div>
+            <div class="form-control w-full mb-4">
+                <label class="label"><span class="label-text">کد ملی:</span></label>
+                <input type="text" id="national_id" class="input input-bordered w-full" disabled>
+            </div>
+            <div class="form-control w-full mb-4">
+                <label class="label"><span class="label-text">شماره موبایل:</span></label>
+                <input type="tel" id="phone_number" class="input input-bordered w-full">
+            </div>
+            <div class="form-control w-full mb-4">
+                <label class="label"><span class="label-text">کد پستی:</span></label>
+                <input type="text" id="postal_code" class="input input-bordered w-full">
+            </div>
+            <div class="form-control w-full mb-4">
+                <label class="label"><span class="label-text">آدرس:</span></label>
+                <textarea id="address" class="textarea textarea-bordered w-full" rows="3"></textarea>
+            </div>
+            <button type="submit" id="save_btn" class="btn btn-primary w-full">ذخیره اطلاعات و ورود به داشبورد</button>
+        </form>
     </div>
-    
     <dialog id="message_modal" class="modal">
         <div class="modal-box text-center">
             <h3 id="modal_title" class="font-bold text-lg"></h3>
@@ -53,93 +50,87 @@
             </div>
         </div>
     </dialog>
-
-<script>
-    const API_BACKEND_URL = "https://tavonibot.onrender.com";
-    let currentNationalId = '';
-
-    function showModal(title, message, isSuccess) {
-        const modal = document.getElementById('message_modal');
-        document.getElementById('modal_title').textContent = title;
-        document.getElementById('modal_message').textContent = message;
-        const modalButton = document.getElementById('modal_button');
-        modalButton.className = 'btn';
-        if (isSuccess) { modalButton.classList.add('btn-success'); } 
-        else { modalButton.classList.add('btn-error'); }
-        modal.showModal();
-    }
-
-    window.onload = function() {
+    <script>
+        const API_BACKEND_URL = "https://tavonibot.onrender.com";
         const urlParams = new URLSearchParams(window.location.search);
-        currentNationalId = urlParams.get('nid');
-        if (!currentNationalId) {
-            document.getElementById('loading_message').textContent = 'خطا: مشخصات کاربر یافت نشد.';
-            return;
-        }
-        fetchUserProfile();
-    };
+        const nationalId = urlParams.get('nid');
 
-    async function fetchUserProfile() {
-        try {
-            const response = await fetch(`${API_BACKEND_URL}/get-user-profile?nid=${currentNationalId}`);
-            const data = await response.json();
-            if (response.ok) {
-                document.getElementById('fullName').value = `${data.first_name || ''} ${data.last_name || ''}`;
-                document.getElementById('nationalId').value = data.national_id;
-                document.getElementById('phone').value = data.phone_number;
-                document.getElementById('postalCode').value = data.postal_code || '';
-                document.getElementById('address').value = data.address || '';
-                document.getElementById('loading_message').classList.add('hidden');
-                document.getElementById('profile_form').classList.remove('hidden');
-            } else {
-                document.getElementById('loading_message').textContent = data.error;
+        function showModal(title, message, isSuccess) {
+            const modal = document.getElementById('message_modal');
+            document.getElementById('modal_title').textContent = title;
+            document.getElementById('modal_message').textContent = message;
+            const modalButton = document.getElementById('modal_button');
+            modalButton.className = 'btn';
+            if (isSuccess) { modalButton.classList.add('btn-success'); } else { modalButton.classList.add('btn-error'); }
+            modal.showModal();
+        }
+
+        async function loadUserData() {
+            const userInfo = document.getElementById('user-info');
+            const form = document.getElementById('profile-form');
+            if (!nationalId) {
+                userInfo.innerHTML = '<p class="text-center">شناسه کاربر نامشخص است.</p>';
+                return;
             }
-        } catch (error) {
-            document.getElementById('loading_message').textContent = 'خطا در ارتباط با سرور.';
-        }
-    }
-
-    async function updateProfile() {
-        const postalCode = document.getElementById('postalCode').value.trim();
-        const address = document.getElementById('address').value.trim();
-        
-        // --- اعتبارسنجی جدید ---
-        if (address === '' || postalCode === '') {
-            showModal('خطا', 'لطفاً فیلدهای کد پستی و آدرس را به طور کامل پر کنید.', false);
-            return;
-        }
-        // --- پایان اعتبارسنجی ---
-
-        const saveBtn = document.getElementById('saveBtn');
-        saveBtn.disabled = true;
-        saveBtn.textContent = 'در حال ذخیره‌سازی...';
-        try {
-            const response = await fetch(`${API_BACKEND_URL}/update-user-profile`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    national_id: currentNationalId,
-                    postal_code: postalCode,
-                    address: address
-                })
-            });
-            const result = await response.json();
-            if (response.ok) {
-                showModal('موفقیت', result.message, true);
-                const modal = document.getElementById('message_modal');
-                modal.addEventListener('close', () => {
-                    window.location.href = `dashboard.html?nid=${currentNationalId}`;
-                }, { once: true });
-            } else {
-                showModal('خطا', result.error, false);
+            try {
+                const response = await fetch(`${API_BACKEND_URL}/api/member-data?nid=${nationalId}`, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    userInfo.style.display = 'none';
+                    form.style.display = 'block';
+                    document.getElementById('full_name').value = `${data.first_name} ${data.last_name}`;
+                    document.getElementById('national_id').value = nationalId;
+                    document.getElementById('phone_number').value = data.phone_number || '';
+                    document.getElementById('postal_code').value = data.postal_code || '';
+                    document.getElementById('address').value = data.address || '';
+                } else {
+                    const errorData = await response.json();
+                    userInfo.innerHTML = `<p class="text-center">${errorData.error || 'خطا در بارگذاری اطلاعات.'}</p>`;
+                }
+            } catch (error) {
+                showModal('خطا', 'خطا در ارتباط با سرور.', false);
             }
-        } catch (error) {
-            showModal('خطا', 'خطا در برقراری ارتباط با سرور.', false);
-        } finally {
-            saveBtn.disabled = false;
-            saveBtn.textContent = 'ذخیره اطلاعات و ورود به داشبورد';
         }
-    }
-</script>
+
+        document.getElementById('profile-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const saveBtn = document.getElementById('save_btn');
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'در حال ذخیره...';
+            const phoneNumber = document.getElementById('phone_number').value;
+            const postalCode = document.getElementById('postal_code').value;
+            const address = document.getElementById('address').value;
+
+            try {
+                const response = await fetch(`${API_BACKEND_URL}/api/update-profile`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ national_id: nationalId, phone_number: phoneNumber, postal_code: postalCode, address: address })
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    showModal('موفقیت', result.message, true);
+                    document.getElementById('message_modal').addEventListener('close', () => {
+                        window.location.href = `dashboard.html?nid=${nationalId}`;
+                    }, { once: true });
+                } else {
+                    showModal('خطا', result.error, false);
+                }
+            } catch (error) {
+                showModal('خطا', 'خطا در ارتباط با سرور.', false);
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'ذخیره اطلاعات و ورود به داشبورد';
+            }
+        });
+
+        // بارگذاری اطلاعات هنگام لود صفحه
+        window.onload = function() {
+            loadUserData();
+        };
+    </script>
 </body>
 </html>
