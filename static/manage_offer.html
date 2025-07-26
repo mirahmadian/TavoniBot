@@ -47,6 +47,10 @@
         async function loadOfferData() {
             const offerDetails = document.getElementById('offer-details');
             const msgEl = document.getElementById('msg');
+            if (!nationalId) {
+                msgEl.textContent = 'شناسه کاربر نامشخص است.';
+                return;
+            }
             try {
                 const response = await fetch(`${API_BACKEND_URL}/api/my-offers/${offerId}`, {
                     method: 'GET',
