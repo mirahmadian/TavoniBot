@@ -12,6 +12,19 @@
             font-family: Vazirmatn, sans-serif;
             background-color: #f0f2f5;
         }
+        .otp-input {
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            padding: 0.5rem;
+            text-align: center;
+            width: 100%;
+            max-width: 10rem;
+        }
+        .timer {
+            color: #ef4444;
+            font-weight: bold;
+            margin-top: 0.5rem;
+        }
     </style>
 </head>
 <body class="flex items-center justify-center min-h-screen">
@@ -32,14 +45,9 @@
     <dialog id="otp_modal" class="modal">
         <div class="modal-box text-center">
             <h3 class="font-bold text-lg">ورود با کد تأیید</h3>
-            <div class="flex justify-center gap-2 mb-4">
-                <input type="text" id="otp_digit_1" class="input input-bordered w-12 text-center" maxlength="1" dir="ltr">
-                <input type="text" id="otp_digit_2" class="input input-bordered w-12 text-center" maxlength="1" dir="ltr">
-                <input type="text" id="otp_digit_3" class="input input-bordered w-12 text-center" maxlength="1" dir="ltr">
-                <input type="text" id="otp_digit_4" class="input input-bordered w-12 text-center" maxlength="1" dir="ltr">
-                <input type="text" id="otp_digit_5" class="input input-bordered w-12 text-center" maxlength="1" dir="ltr">
-            </div>
-            <button onclick="verifyOtp()" class="btn btn-primary w-full">تأیید</button>
+            <input type="text" id="otp_code" class="otp-input mb-2" placeholder="-----" maxlength="5" dir="ltr" autocomplete="one-time-code">
+            <div id="timer" class="timer"></div>
+            <button onclick="verifyOtp()" class="btn btn-primary w-full mt-4">تأیید</button>
             <div class="modal-action">
                 <form method="dialog"><button class="btn btn-ghost">انصراف</button></form>
             </div>
@@ -47,6 +55,7 @@
     </dialog>
     <script>
         const API_BACKEND_URL = "https://tavonibot.onrender.com";
+        let otpTimeout = null;
 
         function showModal(title, message, isSuccess) {
             const modal = document.getElementById('message_modal');
@@ -71,43 +80,31 @@
                 const result = await response.json();
                 if (response.ok) {
                     document.getElementById('otp_modal').showModal();
-                    // فوکوس روی اولین باکس
-                    document.getElementById('otp_digit_1').focus();
+                    document.getElementById('otp_code').focus();
+                    startTimer();
                 } else showModal('خطا', result.error, false);
             } catch (e) {showModal('خطا', 'ارتباط با سرور برقرار نشد.', false);}
         }
 
-        function getOtpCode() {
-            return [
-                document.getElementById('otp_digit_1').value,
-                document.getElementById('otp_digit_2').value,
-                document.getElementById('otp_digit_3').value,
-                document.getElementById('otp_digit_4').value,
-                document.getElementById('otp_digit_5').value
-            ].join('');
+        function startTimer() {
+            const timerElement = document.getElementById('timer');
+            let timeLeft = 120; // 120 ثانیه
+            timerElement.textContent = `زمان باقی‌مانده: ${Math.floor(timeLeft / 60)}:${timeLeft % 60 < 10 ? '0' : ''}${timeLeft % 60}`;
+            otpTimeout = setInterval(() => {
+                timeLeft--;
+                timerElement.textContent = `زمان باقی‌مانده: ${Math.floor(timeLeft / 60)}:${timeLeft % 60 < 10 ? '0' : ''}${timeLeft % 60}`;
+                if (timeLeft <= 0) {
+                    clearInterval(otpTimeout);
+                    timerElement.textContent = 'کد منقضی شده است.';
+                    document.getElementById('otp_modal').close();
+                }
+            }, 1000);
         }
-
-        // جابه‌جایی خودکار بین باکس‌ها
-        const otpInputs = ['otp_digit_1', 'otp_digit_2', 'otp_digit_3', 'otp_digit_4', 'otp_digit_5'];
-        otpInputs.forEach((id, index) => {
-            const input = document.getElementById(id);
-            input.addEventListener('input', function(e) {
-                if (this.value.length === this.maxLength) {
-                    const nextInput = document.getElementById(otpInputs[index + 1]);
-                    if (nextInput) nextInput.focus();
-                }
-            });
-            input.addEventListener('keydown', function(e) {
-                if (e.key === 'Backspace' && !this.value && index > 0) {
-                    document.getElementById(otpInputs[index - 1]).focus();
-                }
-            });
-        });
 
         async function verifyOtp() {
             const national_id = document.getElementById('national_id').value;
-            const otp_code = getOtpCode();
-            if (otp_code.length !== 5 || !/^\d+$/.test(otp_code)) return showModal('خطا', 'کد تأیید باید ۵ رقم باشد.', false);
+            const otp_code = document.getElementById('otp_code').value;
+            if (!otp_code || !/^\d{5}$/.test(otp_code)) return showModal('خطا', 'کد تأیید باید ۵ رقم باشد.', false);
             try {
                 const response = await fetch(`${API_BACKEND_URL}/api/verify-otp`, {
                     method: 'POST',
@@ -116,12 +113,18 @@
                 });
                 const result = await response.json();
                 if (response.ok) {
+                    clearInterval(otpTimeout);
                     if (result.action === 'go_to_profile') window.location.href = `profile.html?nid=${national_id}`;
                     else if (result.action === 'go_to_dashboard') window.location.href = `dashboard.html?nid=${national_id}`;
                 } else showModal('خطا', result.error, false);
                 document.getElementById('otp_modal').close();
             } catch (e) {showModal('خطا', 'ارتباط با سرور برقرار نشد.', false);}
         }
+
+        // تمیز کردن تایمر هنگام بستن مودال
+        document.getElementById('otp_modal').addEventListener('close', () => {
+            if (otpTimeout) clearInterval(otpTimeout);
+        });
     </script>
 </body>
 </html>

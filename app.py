@@ -94,7 +94,7 @@ def start_login():
         if user.get('phonenumber') and user.get('chat_id'):
             otp_code = random.randint(10000, 99999)
             supabase.table('otp_codes').upsert({"national_id": national_id, "otp_code": str(otp_code), "timestamp": time.time()}).execute()
-            otp_message = f"*تعاونی مصرف کارکنان سازمان حج و زیارت*\n\nسهامدار گرامی، کد محرمانه زیر جهت ورود به سامانه تعاونی مصرف می‌باشد. لطفاً این کد را در اختیار دیگران قرار ندهید.\nکد ورود شما: {otp_code}"
+            otp_message = f"*تعاونی مصرف کارکنان سازمان حج و زیارت*\n\nسهامدار گرامی، کد محرمانه زیر جهت ورود به سامانه تعاونی مصرف می‌باشد. *لطفاً این کد را در اختیار دیگران قرار ندهید.*\nکد ورود شما: {otp_code}"
             requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": user['chat_id'], "text": otp_message, "parse_mode": "Markdown"})
             return jsonify({"action": "verify_otp"})
         else:
