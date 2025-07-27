@@ -1,6 +1,17 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>داشبورد</title><link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.20/dist/full.min.css" rel="stylesheet" /><link href="https://cdn.jsdelivr.net/npm/@fontsource/vazirmatn@latest/index.css" rel="stylesheet" /><script src="https://cdn.tailwindcss.com"></script><style>body{font-family:Vazirmatn,sans-serif;background-color:#f0f2f5;}</style></head>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>داشبورد</title>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.20/dist/full.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/@fontsource/vazirmatn@latest/index.css" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: Vazirmatn, sans-serif; background-color: #f0f2f5; }
+        .modal-box { max-width: 400px; }
+    </style>
+</head>
 <body class="p-4 md:p-8">
     <div class="max-w-2xl mx-auto bg-white p-8 rounded-2xl shadow-md">
         <h1 class="text-2xl font-bold mb-6" id="welcome">خوش آمدید</h1>
@@ -12,14 +23,36 @@
         <div class="mt-6 space-x-2">
             <a href="sell_share.html?nid=" id="sell_link" class="btn btn-error">قصد فروش دارم</a>
             <a href="view_offers.html?nid=" id="view_offers_link" class="btn btn-primary">مشاهده پیشنهادات</a>
+            <a href="offer_requests.html?nid=" id="requests_link" class="btn btn-info mt-4">درخواست‌های خرید</a>
         </div>
+        <button onclick="logout()" class="btn btn-error w-full mt-4">خروج از سامانه</button>
     </div>
+    <dialog id="confirm_modal" class="modal">
+        <div class="modal-box">
+            <h3 id="confirm_title" class="font-bold text-lg"></h3>
+            <p id="confirm_message" class="py-4"></p>
+            <div class="modal-action">
+                <button id="confirm_yes" class="btn btn-success">بله</button>
+                <button id="confirm_no" class="btn btn-error">خیر</button>
+            </div>
+        </div>
+    </dialog>
     <script>
         const API_BACKEND_URL = "https://tavonibot.onrender.com";
         const urlParams = new URLSearchParams(window.location.search);
         const nationalId = urlParams.get('nid');
         document.getElementById('sell_link').href += nationalId;
         document.getElementById('view_offers_link').href += nationalId;
+        document.getElementById('requests_link').href += nationalId;
+
+        function showConfirm(title, message, onConfirm) {
+            const modal = document.getElementById('confirm_modal');
+            document.getElementById('confirm_title').textContent = title;
+            document.getElementById('confirm_message').textContent = message;
+            document.getElementById('confirm_yes').onclick = () => { onConfirm(); modal.close(); };
+            document.getElementById('confirm_no').onclick = () => modal.close();
+            modal.showModal();
+        }
 
         async function loadData() {
             try {
@@ -37,7 +70,6 @@
                     document.getElementById('available_share').textContent = dashboardData.available_share;
                 }
 
-                // بارگذاری پیشنهادات فروش کاربر
                 const offersResponse = await fetch(`${API_BACKEND_URL}/api/sale-offers`);
                 const offers = await offersResponse.json();
                 const userOffers = offers.filter(offer => offer.seller_national_id === nationalId && offer.status === 'active');
@@ -64,24 +96,20 @@
         }
 
         async function cancelOffer(offerId) {
-            if (confirm('آیا از لغو این پیشنهاد مطمئن هستید؟')) {
-                try {
-                    const response = await fetch(`${API_BACKEND_URL}/api/cancel-offer/${offerId}`, {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({national_id: nationalId})
-                    });
-                    const result = await response.json();
-                    if (response.ok) {
-                        alert('پیشنهاد با موفقیت لغو شد.');
-                        loadData(); // بارگذاری مجدد داده‌ها
-                    } else {
-                        alert('خطا در لغو پیشنهاد: ' + result.error);
-                    }
-                } catch (e) {
-                    alert('خطا در ارتباط با سرور.');
-                }
-            }
+            showConfirm('لغو', 'آیا از لغو این پیشنهاد مطمئن هستید؟', () => {
+                fetch(`${API_BACKEND_URL}/api/cancel-offer/${offerId}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({national_id: nationalId})
+                }).then(res => res.json()).then(result => {
+                    if (res.ok) loadData();
+                    else showConfirm('خطا', result.error, () => {});
+                }).catch(() => showConfirm('خطا', 'ارتباط با سرور برقرار نشد.', () => {}));
+            });
+        }
+
+        function logout() {
+            showConfirm('خروج', 'آیا می‌خواهید از سامانه خارج شوید؟', () => window.location.href = 'index.html');
         }
 
         window.onload = loadData;

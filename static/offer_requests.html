@@ -1,43 +1,4 @@
-<script type="text/javascript">
-        var gk_isXlsx = false;
-        var gk_xlsxFileLookup = {};
-        var gk_fileData = {};
-        function filledCell(cell) {
-          return cell !== '' && cell != null;
-        }
-        function loadFileData(filename) {
-        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
-            try {
-                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
-                var firstSheetName = workbook.SheetNames[0];
-                var worksheet = workbook.Sheets[firstSheetName];
-
-                // Convert sheet to JSON to filter blank rows
-                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-                // Filter out blank rows (rows where all cells are empty, null, or undefined)
-                var filteredData = jsonData.filter(row => row.some(filledCell));
-
-                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
-                var headerRowIndex = filteredData.findIndex((row, index) =>
-                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
-                );
-                // Fallback
-                if (headerRowIndex === -1 || headerRowIndex > 25) {
-                  headerRowIndex = 0;
-                }
-
-                // Convert filtered JSON back to CSV
-                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
-                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
-                return csv;
-            } catch (e) {
-                console.error(e);
-                return "";
-            }
-        }
-        return gk_fileData[filename] || "";
-        }
-        </script><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
     <meta charset="UTF-8">
@@ -47,10 +8,8 @@
     <link href="https://cdn.jsdelivr.net/npm/@fontsource/vazirmatn@latest/index.css" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body {
-            font-family: Vazirmatn, sans-serif;
-            background-color: #f0f2f5;
-        }
+        body { font-family: Vazirmatn, sans-serif; background-color: #f0f2f5; }
+        .modal-box { max-width: 400px; }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -59,13 +18,33 @@
         <div id="requests_list" class="space-y-4"></div>
         <div class="mt-6">
             <a href="dashboard.html?nid=" id="back_link" class="btn btn-primary">بازگشت به داشبورد</a>
+            <button onclick="logout()" class="btn btn-error mt-4">خروج از سامانه</button>
         </div>
     </div>
+    <dialog id="confirm_modal" class="modal">
+        <div class="modal-box">
+            <h3 id="confirm_title" class="font-bold text-lg"></h3>
+            <p id="confirm_message" class="py-4"></p>
+            <div class="modal-action">
+                <button id="confirm_yes" class="btn btn-success">بله</button>
+                <button id="confirm_no" class="btn btn-error">خیر</button>
+            </div>
+        </div>
+    </dialog>
     <script>
         const API_BACKEND_URL = "https://tavonibot.onrender.com";
         const urlParams = new URLSearchParams(window.location.search);
         const nationalId = urlParams.get('nid');
         document.getElementById('back_link').href += nationalId;
+
+        function showConfirm(title, message, onConfirm) {
+            const modal = document.getElementById('confirm_modal');
+            document.getElementById('confirm_title').textContent = title;
+            document.getElementById('confirm_message').textContent = message;
+            document.getElementById('confirm_yes').onclick = () => { onConfirm(); modal.close(); };
+            document.getElementById('confirm_no').onclick = () => modal.close();
+            modal.showModal();
+        }
 
         async function loadRequests() {
             try {
@@ -77,12 +56,14 @@
                     requestsList.innerHTML = '';
                     if (requests.length > 0) {
                         requests.forEach(req => {
+                            const buyer = req['member:buyer_national_id'];
                             const div = document.createElement('div');
                             div.className = 'card bg-base-100 shadow-md p-4 rounded-lg';
-                            const buyer = req['member:buyer_national_id'];
                             div.innerHTML = `
                                 <p>خریدار: ${buyer.first_name} ${buyer.last_name}</p>
+                                <p>شماره تماس: ${buyer.phonenumber || 'موجود نیست'}</p>
                                 <p>درصد سهم: ${req.sale_offers.percentage_to_sell}%</p>
+                                <p>قیمت: ${req.sale_offers.price.toLocaleString('fa-IR')} تومان</p>
                                 <div class="flex gap-2 mt-2">
                                     <button onclick="approveRequest(${req.id})" class="btn btn-success btn-sm">تأیید</button>
                                     <button onclick="rejectRequest(${req.id})" class="btn btn-error btn-sm">رد</button>
@@ -101,45 +82,33 @@
         }
 
         async function approveRequest(requestId) {
-            if (confirm('آیا از تأیید این درخواست مطمئن هستید؟')) {
-                try {
-                    const response = await fetch(`${API_BACKEND_URL}/api/approve-request/${requestId}`, {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({seller_nid: nationalId})
-                    });
-                    const result = await response.json();
-                    if (response.ok) {
-                        alert('درخواست با موفقیت تأیید شد.');
-                        loadRequests();
-                    } else {
-                        alert('خطا در تأیید درخواست: ' + result.error);
-                    }
-                } catch (e) {
-                    alert('خطا در ارتباط با سرور.');
-                }
-            }
+            showConfirm('تأیید', 'آیا از تأیید این درخواست مطمئن هستید؟', () => {
+                fetch(`${API_BACKEND_URL}/api/approve-request/${requestId}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({seller_nid: nationalId})
+                }).then(res => res.json()).then(result => {
+                    if (res.ok) loadRequests();
+                    else showConfirm('خطا', result.error, () => {});
+                }).catch(() => showConfirm('خطا', 'ارتباط با سرور برقرار نشد.', () => {}));
+            });
         }
 
         async function rejectRequest(requestId) {
-            if (confirm('آیا از رد این درخواست مطمئن هستید؟')) {
-                try {
-                    const response = await fetch(`${API_BACKEND_URL}/api/reject-request/${requestId}`, {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({seller_nid: nationalId})
-                    });
-                    const result = await response.json();
-                    if (response.ok) {
-                        alert('درخواست با موفقیت رد شد.');
-                        loadRequests();
-                    } else {
-                        alert('خطا در رد درخواست: ' + result.error);
-                    }
-                } catch (e) {
-                    alert('خطا در ارتباط با سرور.');
-                }
-            }
+            showConfirm('رد', 'آیا از رد این درخواست مطمئن هستید؟', () => {
+                fetch(`${API_BACKEND_URL}/api/reject-request/${requestId}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({seller_nid: nationalId})
+                }).then(res => res.json()).then(result => {
+                    if (res.ok) loadRequests();
+                    else showConfirm('خطا', result.error, () => {});
+                }).catch(() => showConfirm('خطا', 'ارتباط با سرور برقرار نشد.', () => {}));
+            });
+        }
+
+        function logout() {
+            showConfirm('خروج', 'آیا می‌خواهید از سامانه خارج شوید؟', () => window.location.href = 'index.html');
         }
 
         window.onload = loadRequests;

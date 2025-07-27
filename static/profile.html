@@ -1,64 +1,73 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>پروفایل</title><link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.20/dist/full.min.css" rel="stylesheet" /><link href="https://cdn.jsdelivr.net/npm/@fontsource/vazirmatn@latest/index.css" rel="stylesheet" /><script src="https://cdn.tailwindcss.com"></script><style>body{font-family:Vazirmatn,sans-serif;background-color:#f0f2f5;}.required::after{content:' *';color:red;}</style></head>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>پروفایل</title>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.20/dist/full.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/@fontsource/vazirmatn@latest/index.css" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: Vazirmatn, sans-serif; background-color: #f0f2f5; }
+        .modal-box { max-width: 400px; }
+    </style>
+</head>
 <body class="p-4 md:p-8">
-    <div class="max-w-2xl mx-auto bg-white p-8 rounded-2xl shadow-md">
-        <h1 class="text-2xl font-bold mb-6">پروفایل</h1>
-        <div class="space-y-4">
-            <div class="form-control"><label class="label"><span class="label-text">نام</span></label><input type="text" id="first_name" class="input input-bordered w-full" readonly></div>
-            <div class="form-control"><label class="label"><span class="label-text">نام خانوادگی</span></label><input type="text" id="last_name" class="input input-bordered w-full" readonly></div>
-            <div class="form-control"><label class="label"><span class="label-text">کد ملی</span></label><input type="text" id="national_id" class="input input-bordered w-full" readonly></div>
-            <div class="form-control"><label class="label"><span class="label-text">تلفن همراه</span></label><input type="text" id="phonenumber" class="input input-bordered w-full" readonly></div>
-            <div class="form-control"><label class="label"><span class="label-text required">کد پستی</span></label><input type="text" id="postal_code" class="input input-bordered w-full" placeholder="مثال: 1234567890" dir="ltr" maxlength="10"></div>
-            <div class="form-control"><label class="label"><span class="label-text required">آدرس محل سکونت</span></label><input type="text" id="address" class="input input-bordered w-full" placeholder="آدرس"></div>
-        </div>
-        <button onclick="saveProfile()" class="btn btn-primary w-full mt-6">ذخیره تغییرات</button>
+    <div class="max-w-md mx-auto bg-white p-6 rounded-2xl shadow-md text-center">
+        <h1 class="text-xl font-semibold mb-4">ویرایش پروفایل</h1>
+        <input type="text" id="postal_code" placeholder="کد پستی" class="input input-bordered w-full mb-4 text-center">
+        <input type="text" id="address" placeholder="آدرس" class="input input-bordered w-full mb-4">
+        <button onclick="updateProfile()" class="btn btn-primary w-full">به‌روزرسانی</button>
+        <a href="dashboard.html?nid=" id="back_link" class="btn btn-ghost w-full mt-4">بازگشت به داشبورد</a>
+        <button onclick="logout()" class="btn btn-error w-full mt-4">خروج از سامانه</button>
     </div>
-    <dialog id="message_modal" class="modal">
-        <div class="modal-box text-center"><h3 id="modal_title" class="font-bold text-lg"></h3><p id="modal_message" class="py-4"></p><div class="modal-action justify-center"><form method="dialog"><button id="modal_button" class="btn">بستن</button></form></div></div>
+    <dialog id="confirm_modal" class="modal">
+        <div class="modal-box">
+            <h3 id="confirm_title" class="font-bold text-lg"></h3>
+            <p id="confirm_message" class="py-4"></p>
+            <div class="modal-action">
+                <button id="confirm_yes" class="btn btn-success">بله</button>
+                <button id="confirm_no" class="btn btn-error">خیر</button>
+            </div>
+        </div>
     </dialog>
     <script>
         const API_BACKEND_URL = "https://tavonibot.onrender.com";
         const urlParams = new URLSearchParams(window.location.search);
         const nationalId = urlParams.get('nid');
-        document.getElementById('national_id').value = nationalId;
+        document.getElementById('back_link').href += nationalId;
 
-        function showModal(title, message, isSuccess) {
-            const modal = document.getElementById('message_modal'); document.getElementById('modal_title').textContent = title; document.getElementById('modal_message').textContent = message; const btn = document.getElementById('modal_button'); btn.className = 'btn'; if (isSuccess) btn.classList.add('btn-success'); else btn.classList.add('btn-error'); modal.showModal();
+        function showConfirm(title, message, onConfirm) {
+            const modal = document.getElementById('confirm_modal');
+            document.getElementById('confirm_title').textContent = title;
+            document.getElementById('confirm_message').textContent = message;
+            document.getElementById('confirm_yes').onclick = () => { onConfirm(); modal.close(); };
+            document.getElementById('confirm_no').onclick = () => modal.close();
+            modal.showModal();
         }
 
-        function isValidPostcode(code) {
-            const regex = /^[1-9][0-9]{9}$/;
-            return regex.test(code);
+        async function updateProfile() {
+            const postal_code = document.getElementById('postal_code').value;
+            const address = document.getElementById('address').value;
+            if (!postal_code || !address) {
+                showConfirm('خطا', 'لطفاً تمامی فیلدها را پر کنید.', () => {});
+                return;
+            }
+            showConfirm('تأیید', 'آیا از به‌روزرسانی پروفایل مطمئن هستید؟', () => {
+                fetch(`${API_BACKEND_URL}/api/update-profile`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({national_id: nationalId, postal_code, address})
+                }).then(res => res.json()).then(result => {
+                    if (res.ok) showConfirm('موفق', 'پروفایل به‌روز شد.', () => window.location.href = `dashboard.html?nid=${nationalId}`);
+                    else showConfirm('خطا', result.error, () => {});
+                }).catch(() => showConfirm('خطا', 'ارتباط با سرور برقرار نشد.', () => {}));
+            });
         }
 
-        async function loadProfile() {
-            try {
-                const response = await fetch(`${API_BACKEND_URL}/api/member-data?nid=${nationalId}`);
-                const data = await response.json();
-                if (response.ok) {
-                    document.getElementById('first_name').value = data.first_name || '';
-                    document.getElementById('last_name').value = data.last_name || '';
-                    document.getElementById('phonenumber').value = data.phonenumber || '';
-                    document.getElementById('postal_code').value = data.postal_code || '';
-                    document.getElementById('address').value = data.address || '';
-                } else showModal('خطا', 'داده‌ها بارگذاری نشد.', false);
-            } catch (e) {showModal('خطا', 'ارتباط با سرور برقرار نشد.', false);}
+        function logout() {
+            showConfirm('خروج', 'آیا می‌خواهید از سامانه خارج شوید؟', () => window.location.href = 'index.html');
         }
-
-        async function saveProfile() {
-            const postal_code = document.getElementById('postal_code').value.trim();
-            const address = document.getElementById('address').value.trim();
-            if (!postal_code || !address) return showModal('خطا', 'کد پستی و آدرس الزامی هستند.', false);
-            if (!isValidPostcode(postal_code)) return showModal('خطا', 'کد پستی باید ۱۰ رقم باشد، با ۱ تا ۹ شروع شود و فقط شامل اعداد باشد (مثال: 1234567890).', false);
-            try {
-                const response = await fetch(`${API_BACKEND_URL}/api/update-profile`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({national_id: nationalId, postal_code, address})});
-                const result = await response.json();
-                if (response.ok) window.location.href = `dashboard.html?nid=${nationalId}`; else showModal('خطا', result.error, false);
-            } catch (e) {showModal('خطا', 'ارتباط با سرور برقرار نشد.', false);}
-        }
-
-        window.onload = loadProfile;
     </script>
 </body>
 </html>

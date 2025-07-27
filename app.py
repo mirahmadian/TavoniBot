@@ -165,8 +165,8 @@ def get_dashboard_data():
 def sell_share():
     data = request.get_json(silent=True)
     if not data: return jsonify({"error": "درخواست نامعتبر است."}), 400
-    national_id, percentage = data.get('national_id'), data.get('percentage_to_sell')
-    if not all([national_id, percentage]): return jsonify({"error": "اطلاعات ناقص است."}), 400
+    national_id, percentage, price = data.get('national_id'), data.get('percentage_to_sell'), data.get('price')
+    if not all([national_id, percentage, price]): return jsonify({"error": "اطلاعات ناقص است."}), 400
     try:
         member = supabase.table('member').select("share_percentage").eq('nationalcode', national_id).execute()
         if not member.data: return jsonify({"error": "کاربر یافت نشد."}), 404
@@ -175,7 +175,7 @@ def sell_share():
         listed = sum(offer['percentage_to_sell'] for offer in offers.data) if offers.data else 0
         if (listed + percentage) > total_share:
             return jsonify({"error": f"سهم کافی نیست. حداکثر {total_share - listed}% قابل فروش است."}), 400
-        supabase.table('sale_offers').insert({"seller_national_id": national_id, "percentage_to_sell": percentage, "price": 0, "status": "active"}).execute()
+        supabase.table('sale_offers').insert({"seller_national_id": national_id, "percentage_to_sell": percentage, "price": price, "status": "active"}).execute()
         return jsonify({"message": "پیشنهاد فروش ثبت شد."})
     except Exception as e:
         print(f"Sell Share Error: {e}")
@@ -210,7 +210,7 @@ def offer_detail(offer_id):
         buyer = supabase.table('member').select('phonenumber, first_name, last_name').eq('nationalcode', buyer_nid).execute()
         if not buyer.data: return jsonify({"error": "اطلاعات خریدار یافت نشد."}), 404
         buyer_phone = buyer.data[0]['phonenumber'] or 'شماره موجود نیست'
-        message = f"کاربر {buyer.data[0]['first_name']} {buyer.data[0]['last_name']} (شماره: {buyer_phone}) تمایل به خرید {offer_data['percentage_to_sell']}% سهم شما دارد."
+        message = f"کاربر {buyer.data[0]['first_name']} {buyer.data[0]['last_name']} (شماره: {buyer_phone}) تمایل به خرید {offer_data['percentage_to_sell']}% سهم شما با قیمت {offer_data['price']} تومان دارد."
         supabase.table('purchase_requests').insert({"offer_id": offer_id, "buyer_national_id": buyer_nid, "status": "pending"}).execute()
         seller = supabase.table('member').select('chat_id').eq('nationalcode', offer_data['seller_national_id']).execute()
         if seller.data and seller.data[0].get('chat_id'):
@@ -266,6 +266,7 @@ def reject_request(request_id):
         offer = supabase.table('sale_offers').select('seller_national_id, status').eq('id', request.data[0]['offer_id']).execute()
         if not offer.data or offer.data[0]['seller_national_id'] != seller_nid: return jsonify({"error": "شما مجاز به رد این درخواست نیستید."}), 403
         supabase.table('purchase_requests').update({'status': 'rejected'}).eq('id', request_id).execute()
+        supabase.table('sale_offers').update({'status': 'active'}).eq('id', request.data[0]['offer_id']).execute()
         return jsonify({"message": "درخواست با موفقیت رد شد."})
     except Exception as e:
         print(f"Reject Request Error: {e}")
@@ -275,7 +276,7 @@ def reject_request(request_id):
 def get_admin_data():
     try:
         offers = supabase.table('sale_offers').select('*, member:seller_national_id (first_name, last_name)').execute()
-        requests = supabase.table('purchase_requests').select('*, sale_offers(seller_national_id, percentage_to_sell), member:buyer_national_id (first_name, last_name)').execute()
+        requests = supabase.table('purchase_requests').select('*, sale_offers(seller_national_id, percentage_to_sell, price), member:buyer_national_id (first_name, last_name, phonenumber)').execute()
         return jsonify({"offers": offers.data, "requests": requests.data})
     except Exception as e:
         print(f"Admin Data Error: {e}")

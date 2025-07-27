@@ -8,23 +8,10 @@
     <link href="https://cdn.jsdelivr.net/npm/@fontsource/vazirmatn@latest/index.css" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body {
-            font-family: Vazirmatn, sans-serif;
-            background-color: #f0f2f5;
-        }
-        .otp-input {
-            border: 1px solid #d1d5db;
-            border-radius: 0.375rem;
-            padding: 0.5rem;
-            text-align: center;
-            width: 100%;
-            max-width: 10rem;
-        }
-        .timer {
-            color: #ef4444;
-            font-weight: bold;
-            margin-top: 0.5rem;
-        }
+        body { font-family: Vazirmatn, sans-serif; background-color: #f0f2f5; }
+        .otp-input { border: 1px solid #d1d5db; border-radius: 0.375rem; padding: 0.5rem; text-align: center; width: 100%; max-width: 10rem; }
+        .timer { color: #ef4444; font-weight: bold; margin-top: 0.5rem; }
+        .modal-box { max-width: 400px; }
     </style>
 </head>
 <body class="flex items-center justify-center min-h-screen">
@@ -32,6 +19,7 @@
         <h1 class="text-xl font-semibold mb-6">لطفاً کدملی خود را وارد کنید</h1>
         <input type="text" id="national_id" placeholder="مثال: 1234567890" class="input input-bordered w-full mb-4 text-center" dir="ltr" maxlength="10">
         <button onclick="startLogin()" class="btn btn-primary w-full">دریافت کد تأیید</button>
+        <button onclick="logout()" class="btn btn-error w-full mt-4">خروج از سامانه</button>
     </div>
     <dialog id="message_modal" class="modal">
         <div class="modal-box text-center">
@@ -53,6 +41,16 @@
             </div>
         </div>
     </dialog>
+    <dialog id="confirm_modal" class="modal">
+        <div class="modal-box">
+            <h3 id="confirm_title" class="font-bold text-lg"></h3>
+            <p id="confirm_message" class="py-4"></p>
+            <div class="modal-action">
+                <button id="confirm_yes" class="btn btn-success">بله</button>
+                <button id="confirm_no" class="btn btn-error">خیر</button>
+            </div>
+        </div>
+    </dialog>
     <script>
         const API_BACKEND_URL = "https://tavonibot.onrender.com";
         let otpTimeout = null;
@@ -68,9 +66,21 @@
             modal.showModal();
         }
 
+        function showConfirm(title, message, onConfirm) {
+            const modal = document.getElementById('confirm_modal');
+            document.getElementById('confirm_title').textContent = title;
+            document.getElementById('confirm_message').textContent = message;
+            document.getElementById('confirm_yes').onclick = () => { onConfirm(); modal.close(); };
+            document.getElementById('confirm_no').onclick = () => modal.close();
+            modal.showModal();
+        }
+
         async function startLogin() {
             const national_id = document.getElementById('national_id').value;
-            if (!national_id) return showModal('خطا', 'کد ملی را وارد کنید.', false);
+            if (!national_id) {
+                showConfirm('خطا', 'کد ملی را وارد کنید.', () => {});
+                return;
+            }
             try {
                 const response = await fetch(`${API_BACKEND_URL}/api/start-login`, {
                     method: 'POST',
@@ -82,8 +92,8 @@
                     document.getElementById('otp_modal').showModal();
                     document.getElementById('otp_code').focus();
                     startTimer();
-                } else showModal('خطا', result.error, false);
-            } catch (e) {showModal('خطا', 'ارتباط با سرور برقرار نشد.', false);}
+                } else showConfirm('خطا', result.error, () => {});
+            } catch (e) { showConfirm('خطا', 'ارتباط با سرور برقرار نشد.', () => {}); }
         }
 
         function startTimer() {
@@ -104,7 +114,10 @@
         async function verifyOtp() {
             const national_id = document.getElementById('national_id').value;
             const otp_code = document.getElementById('otp_code').value;
-            if (!otp_code || !/^\d{5}$/.test(otp_code)) return showModal('خطا', 'کد تأیید باید ۵ رقم باشد.', false);
+            if (!otp_code || !/^\d{5}$/.test(otp_code)) {
+                showConfirm('خطا', 'کد تأیید باید ۵ رقم باشد.', () => {});
+                return;
+            }
             try {
                 const response = await fetch(`${API_BACKEND_URL}/api/verify-otp`, {
                     method: 'POST',
@@ -116,12 +129,15 @@
                     clearInterval(otpTimeout);
                     if (result.action === 'go_to_profile') window.location.href = `profile.html?nid=${national_id}`;
                     else if (result.action === 'go_to_dashboard') window.location.href = `dashboard.html?nid=${national_id}`;
-                } else showModal('خطا', result.error, false);
+                } else showConfirm('خطا', result.error, () => {});
                 document.getElementById('otp_modal').close();
-            } catch (e) {showModal('خطا', 'ارتباط با سرور برقرار نشد.', false);}
+            } catch (e) { showConfirm('خطا', 'ارتباط با سرور برقرار نشد.', () => {}); }
         }
 
-        // تمیز کردن تایمر هنگام بستن مودال
+        function logout() {
+            showConfirm('خروج', 'آیا می‌خواهید از سامانه خارج شوید؟', () => window.location.href = 'index.html');
+        }
+
         document.getElementById('otp_modal').addEventListener('close', () => {
             if (otpTimeout) clearInterval(otpTimeout);
         });

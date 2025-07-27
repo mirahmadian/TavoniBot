@@ -1,44 +1,49 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>جزئیات پیشنهاد</title><link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.20/dist/full.min.css" rel="stylesheet" /><link href="https://cdn.jsdelivr.net/npm/@fontsource/vazirmatn@latest/index.css" rel="stylesheet" /><script src="https://cdn.tailwindcss.com"></script><style>body{font-family:Vazirmatn,sans-serif;background-color:#f0f2f5;}</style></head>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>جزئیات پیشنهاد</title>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.20/dist/full.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/@fontsource/vazirmatn@latest/index.css" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: Vazirmatn, sans-serif; background-color: #f0f2f5; }
+        .modal-box { max-width: 400px; }
+    </style>
+</head>
 <body class="p-4 md:p-8">
-    <div class="max-w-2xl mx-auto bg-white p-8 rounded-2xl shadow-md">
-        <h1 class="text-2xl font-bold mb-6">جزئیات پیشنهاد</h1>
-        <div id="offer_details" class="space-y-4">
-            <p><span class="font-semibold">نام فروشنده:</span> <span id="seller_name"></span></p>
-            <p><span class="font-semibold">میزان درصد برای فروش:</span> <span id="percentage"></span>%</p>
-            <p><span class="font-semibold">قیمت:</span> <span id="price"></span> تومان</p>
-            <p><span class="font-semibold">وضعیت:</span> <span id="status"></span></p>
-        </div>
-        <button id="buy_btn" onclick="showConfirmation()" class="btn btn-success w-full mt-6">قصد خرید دارم</button>
-        <a href="view_offers.html?nid=" id="back_link" class="btn btn-ghost mt-4 w-full">بازگشت</a>
+    <div class="max-w-md mx-auto bg-white p-6 rounded-2xl shadow-md text-center">
+        <h1 class="text-xl font-semibold mb-4">جزئیات پیشنهاد</h1>
+        <div id="offer_details" class="mb-4"></div>
+        <button id="buy_button" class="btn btn-success w-full mb-4">ثبت درخواست خرید</button>
+        <a href="view_offers.html?nid=" id="back_link" class="btn btn-ghost w-full">بازگشت</a>
+        <button onclick="logout()" class="btn btn-error w-full mt-4">خروج از سامانه</button>
     </div>
     <dialog id="confirm_modal" class="modal">
-        <div class="modal-box text-center">
-            <h3 class="font-bold text-lg">تأیید خرید</h3>
-            <p class="py-4">آیا از خرید این پیشنهاد مطمئن هستید؟</p>
-            <div class="modal-action justify-center gap-4">
-                <button onclick="submitBuy()" class="btn btn-success">بله، مطمئنم</button>
-                <form method="dialog"><button class="btn btn-ghost">خیر، انصراف</button></form>
+        <div class="modal-box">
+            <h3 id="confirm_title" class="font-bold text-lg"></h3>
+            <p id="confirm_message" class="py-4"></p>
+            <div class="modal-action">
+                <button id="confirm_yes" class="btn btn-success">بله</button>
+                <button id="confirm_no" class="btn btn-error">خیر</button>
             </div>
         </div>
-    </dialog>
-    <dialog id="message_modal" class="modal">
-        <div class="modal-box text-center"><h3 id="modal_title" class="font-bold text-lg"></h3><p id="modal_message" class="py-4"></p><div class="modal-action justify-center"><form method="dialog"><button id="modal_button" class="btn">بستن</button></form></div></div>
     </dialog>
     <script>
         const API_BACKEND_URL = "https://tavonibot.onrender.com";
         const urlParams = new URLSearchParams(window.location.search);
-        const offerId = urlParams.get('offer_id');
         const nationalId = urlParams.get('nid');
+        const offerId = urlParams.get('offer_id');
         document.getElementById('back_link').href += nationalId;
 
-        function showModal(title, message, isSuccess) {
-            const modal = document.getElementById('message_modal'); document.getElementById('modal_title').textContent = title; document.getElementById('modal_message').textContent = message; const btn = document.getElementById('modal_button'); btn.className = 'btn'; if (isSuccess) btn.classList.add('btn-success'); else btn.classList.add('btn-error'); modal.showModal();
-        }
-
-        function showConfirmation() {
-            document.getElementById('confirm_modal').showModal();
+        function showConfirm(title, message, onConfirm) {
+            const modal = document.getElementById('confirm_modal');
+            document.getElementById('confirm_title').textContent = title;
+            document.getElementById('confirm_message').textContent = message;
+            document.getElementById('confirm_yes').onclick = () => { onConfirm(); modal.close(); };
+            document.getElementById('confirm_no').onclick = () => modal.close();
+            modal.showModal();
         }
 
         async function loadOffer() {
@@ -47,30 +52,34 @@
                 const offers = await response.json();
                 const offer = offers.find(o => o.id === parseInt(offerId));
                 if (offer) {
-                    document.getElementById('seller_name').textContent = `${offer['member']['first_name']} ${offer['member']['last_name']}`;
-                    document.getElementById('percentage').textContent = offer.percentage_to_sell;
-                    document.getElementById('price').textContent = offer.price.toLocaleString('fa-IR');
-                    document.getElementById('status').textContent = offer.status;
-                } else {
-                    showModal('خطا', 'پیشنهاد یافت نشد.', false);
-                    setTimeout(() => window.location.href = `view_offers.html?nid=${nationalId}`, 2000);
+                    document.getElementById('offer_details').innerHTML = `
+                        <p>فروشنده: ${offer['member:seller_national_id'].first_name} ${offer['member:seller_national_id'].last_name}</p>
+                        <p>درصد: ${offer.percentage_to_sell}%</p>
+                        <p>قیمت: ${offer.price.toLocaleString('fa-IR')} تومان</p>
+                    `;
+                    document.getElementById('buy_button').onclick = () => buyOffer(offer.id);
                 }
             } catch (e) {
-                showModal('خطا', 'ارتباط با سرور برقرار نشد.', false);
-                setTimeout(() => window.location.href = `view_offers.html?nid=${nationalId}`, 2000);
+                console.error('خطا در بارگذاری پیشنهاد:', e);
+                document.getElementById('offer_details').innerHTML = '<p>خطا در بارگذاری جزئیات.</p>';
             }
         }
 
-        async function submitBuy() {
-            document.getElementById('confirm_modal').close();
-            try {
-                const response = await fetch(`${API_BACKEND_URL}/api/offer-detail/${offerId}`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({buyer_nid: nationalId})});
-                const result = await response.json();
-                if (response.ok) {
-                    showModal('موفقیت', result.message, true);
-                    setTimeout(() => window.location.href = `view_offers.html?nid=${nationalId}`, 2000);
-                } else showModal('خطا', result.error, false);
-            } catch (e) {showModal('خطا', 'ارتباط با سرور برقرار نشد.', false);}
+        async function buyOffer(offerId) {
+            showConfirm('تأیید', 'آیا از ثبت درخواست خرید مطمئن هستید؟', () => {
+                fetch(`${API_BACKEND_URL}/api/offer-detail/${offerId}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({buyer_nid: nationalId})
+                }).then(res => res.json()).then(result => {
+                    if (res.ok) showConfirm('موفق', 'درخواست ثبت شد.', () => window.location.href = `view_offers.html?nid=${nationalId}`);
+                    else showConfirm('خطا', result.error, () => {});
+                }).catch(() => showConfirm('خطا', 'ارتباط با سرور برقرار نشد.', () => {}));
+            });
+        }
+
+        function logout() {
+            showConfirm('خروج', 'آیا می‌خواهید از سامانه خارج شوید؟', () => window.location.href = 'index.html');
         }
 
         window.onload = loadOffer;
