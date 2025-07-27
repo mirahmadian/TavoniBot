@@ -25,7 +25,7 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 
 # --- تنظیمات و اتصالات ---
 OTP_EXPIRATION_SECONDS = 120
-TEST_USERS = ['0079039899', '0084575906']  # کاربران تستی
+TEST_USERS = ['1234567890']  # فقط خریدار تستی
 TEST_OTP = '11111'  # OTP ثابت برای تست
 
 try:
