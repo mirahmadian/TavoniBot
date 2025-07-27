@@ -52,6 +52,8 @@ def serve_view_offers(): return send_from_directory(app.static_folder, 'view_off
 def serve_offer_detail(): return send_from_directory(app.static_folder, 'offer_detail.html')
 @app.route('/manage_offer.html')
 def serve_manage_offer(): return send_from_directory(app.static_folder, 'manage_offer.html')
+@app.route('/buy_share.html')
+def serve_buy_share(): return send_from_directory(app.static_folder, 'buy_share.html')
 @app.route('/health-check')
 def health_check(): 
     print("Health check requested")
@@ -69,14 +71,16 @@ def get_member_data():
             print(f"No member found for national_id: {national_id}")
             return jsonify({"error": "کاربری با این کد ملی یافت نشد."}), 404
         member_data = member_res.data[0]
+        if 'share_percentage' not in member_data:
+            member_data['share_percentage'] = 100
         offers_res = supabase.table('sale_offers').select('percentage_to_sell').eq('seller_national_id', national_id).eq('status', 'active').execute()
-        listed_percentage = sum(offer['percentage_to_sell'] for offer in offers_res.data)
-        member_data['available_share_percentage'] = member_data.get('share_percentage', 100) - listed_percentage
+        listed_percentage = sum(offer['percentage_to_sell'] for offer in offers_res.data) if offers_res.data else 0
+        member_data['available_share_percentage'] = max(0, member_data.get('share_percentage', 100) - listed_percentage)
         print(f"Member data retrieved: {member_data}")
         return jsonify(member_data)
     except Exception as e:
         print(f"Dashboard/Profile Data Error: {e}")
-        return jsonify({"error": "خطا در دریافت اطلاعات کاربر."}), 500
+        return jsonify({"error": f"خطا در دریافت اطلاعات کاربر: {str(e)}"}), 500
 
 @app.route('/api/start-login', methods=['POST'])
 def start_login():
@@ -194,10 +198,10 @@ def get_my_offers():
     print(f"Received my-offers request for national_id: {national_id}")
     if not national_id: return jsonify({"error": "کد ملی ارسال نشده است."}), 400
     try:
-        response = supabase.rpc('get_offers_with_request_count', {'seller_nid': national_id}).execute()
+        response = supabase.table('sale_offers').select('*').eq('seller_national_id', national_id).eq('status', 'active').execute()
         print(f"Retrieved {len(response.data)} offers for national_id: {national_id}")
         if response.data:
-            sorted_offers = sorted(response.data, key=lambda x: x['price'], reverse=True)
+            sorted_offers = sorted(response.data, key=lambda x: x.get('price', 0), reverse=True)
             return jsonify(sorted_offers)
         else: return jsonify([])
     except Exception as e:
@@ -439,6 +443,6 @@ def verify_otp():
         return jsonify({"error": "خطا در بررسی کد تأیید."}), 500
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 10000))
     print(f"Starting Flask server on port {port}")
     app.run(host='0.0.0.0', port=port)
