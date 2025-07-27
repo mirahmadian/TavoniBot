@@ -3,85 +3,139 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>مشاهده پیشنهادات</title>
+    <title>مشاهده پیشنهادات - سامانه تعاونی</title>
     <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.20/dist/full.min.css" rel="stylesheet" />
     <link href="https://cdn.jsdelivr.net/npm/@fontsource/vazirmatn@latest/index.css" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { font-family: Vazirmatn, sans-serif; background-color: #f0f2f5; }
-        .modal-box { max-width: 400px; }
     </style>
 </head>
 <body class="p-4 md:p-8">
-    <div class="max-w-2xl mx-auto bg-white p-8 rounded-2xl shadow-md">
-        <h1 class="text-2xl font-bold mb-6">پیشنهادات فروش</h1>
-        <div id="offers_list" class="space-y-4"></div>
-        <div class="mt-6">
-            <a href="dashboard.html?nid=" id="back_link" class="btn btn-primary">بازگشت به داشبورد</a>
-            <button onclick="logout()" class="btn btn-error mt-4">خروج از سامانه</button>
+    <div class="max-w-4xl mx-auto">
+        <div class="flex justify-between items-center mb-4">
+            <h1 class="text-2xl font-bold text-gray-800">لیست پیشنهادات فروش سهام</h1>
+            <a id="dashboard_link" href="#" class="btn btn-sm btn-outline">بازگشت به داشبورد</a>
         </div>
-    </div>
-    <dialog id="confirm_modal" class="modal">
-        <div class="modal-box">
-            <h3 id="confirm_title" class="font-bold text-lg"></h3>
-            <p id="confirm_message" class="py-4"></p>
-            <div class="modal-action">
-                <button id="confirm_yes" class="btn btn-success">بله</button>
-                <button id="confirm_no" class="btn btn-error">خیر</button>
+        
+        <div class="flex justify-end items-center mb-4 gap-2">
+            <span class="text-sm">نحوه نمایش:</span>
+            <div class="join">
+                <button id="grid_view_btn" class="btn btn-sm join-item btn-active" onclick="setView('grid')">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
+                </button>
+                <button id="list_view_btn" class="btn btn-sm join-item" onclick="setView('list')">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd" /></svg>
+                </button>
             </div>
         </div>
-    </dialog>
-    <script>
-        const API_BACKEND_URL = "https://tavonibot.onrender.com";
+        
+        <div id="offers_loading" class="text-center">
+            <span class="loading loading-lg loading-spinner"></span>
+            <p>در حال بارگذاری لیست...</p>
+        </div>
+        
+        <div id="no_offers_message" class="text-center hidden"><p>در حال حاضر هیچ پیشنهاد فعالی برای فروش وجود ندارد.</p></div>
+        
+        <div id="offers_container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            </div>
+    </div>
+
+<script>
+    const API_BACKEND_URL = "https://tavonibot.onrender.com";
+    let currentNationalId = '';
+
+    window.onload = function() {
         const urlParams = new URLSearchParams(window.location.search);
-        const nationalId = urlParams.get('nid');
-        document.getElementById('back_link').href += nationalId;
+        currentNationalId = urlParams.get('nid');
+        document.getElementById('dashboard_link').href = `dashboard.html?nid=${currentNationalId}`;
+        fetchOffers();
+    };
 
-        function showConfirm(title, message, onConfirm) {
-            const modal = document.getElementById('confirm_modal');
-            document.getElementById('confirm_title').textContent = title;
-            document.getElementById('confirm_message').textContent = message;
-            document.getElementById('confirm_yes').onclick = () => { onConfirm(); modal.close(); };
-            document.getElementById('confirm_no').onclick = () => modal.close();
-            modal.showModal();
+    function setView(viewType) {
+        const container = document.getElementById('offers_container');
+        const gridBtn = document.getElementById('grid_view_btn');
+        const listBtn = document.getElementById('list_view_btn');
+
+        if (viewType === 'grid') {
+            container.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6';
+            gridBtn.classList.add('btn-active');
+            listBtn.classList.remove('btn-active');
+        } else {
+            container.className = 'flex flex-col gap-4';
+            listBtn.classList.add('btn-active');
+            gridBtn.classList.remove('btn-active');
         }
+    }
 
-        async function loadOffers() {
-            try {
-                const response = await fetch(`${API_BACKEND_URL}/api/sale-offers`);
-                const offers = await response.json();
-                const offersList = document.getElementById('offers_list');
-                offersList.innerHTML = '';
-                if (offers.length > 0) {
-                    offers.forEach(offer => {
-                        const div = document.createElement('div');
-                        div.className = 'card bg-base-100 shadow-md p-4 rounded-lg';
-                        div.innerHTML = `
-                            <p>فروشنده: ${offer['member:seller_national_id'].first_name} ${offer['member:seller_national_id'].last_name}</p>
-                            <p>درصد: ${offer.percentage_to_sell}%</p>
-                            <p>قیمت: ${offer.price.toLocaleString('fa-IR')} تومان</p>
-                            <button onclick="viewOffer(${offer.id})" class="btn btn-info btn-sm mt-2">جزئیات</button>
-                        `;
-                        offersList.appendChild(div);
-                    });
-                } else {
-                    offersList.innerHTML = '<p>هیچ پیشنهادی برای فروش وجود ندارد.</p>';
+    async function fetchOffers() {
+        const loadingEl = document.getElementById('offers_loading');
+        const containerEl = document.getElementById('offers_container');
+        const noOffersEl = document.getElementById('no_offers_message');
+
+        try {
+            const response = await fetch(`${API_BACKEND_URL}/api/sale-offers`);
+            const offers = await response.json();
+            loadingEl.classList.add('hidden');
+
+            if (response.ok) {
+                if (offers.length === 0) {
+                    noOffersEl.classList.remove('hidden');
+                    return;
                 }
-            } catch (e) {
-                console.error('خطا در بارگذاری پیشنهادات:', e);
-                document.getElementById('offers_list').innerHTML = '<p>خطا در بارگذاری پیشنهادات.</p>';
+
+                // منطق تحلیل قیمت‌ها
+                const prices = offers.map(o => o.normalized_price);
+                const averagePrice = prices.reduce((a, b) => a + b, 0) / prices.length;
+                const stdDev = Math.sqrt(prices.map(x => Math.pow(x - averagePrice, 2)).reduce((a, b) => a + b, 0) / prices.length);
+                const outlierThreshold = averagePrice + (1.5 * stdDev);
+                const cheapThreshold = averagePrice - (0.5 * stdDev);
+
+                containerEl.innerHTML = '';
+                // --- بخش اصلاح شده ---
+                // ما به جای فیلتر کردن، مستقیماً از لیست کامل offers استفاده می‌کنیم
+                offers.forEach(offer => {
+                // --- پایان بخش اصلاح شده ---
+                    const sellerName = `${offer.member.first_name || ''} ${offer.member.last_name || ''}`;
+                    const priceFormatted = offer.price.toLocaleString('fa-IR');
+                    const normalizedPriceFormatted = offer.normalized_price.toLocaleString('fa-IR');
+
+                    let priceColorClass = '';
+                    if (offer.normalized_price < cheapThreshold) priceColorClass = 'text-success';
+                    else if (offer.normalized_price > outlierThreshold) priceColorClass = 'text-error';
+
+                    let outlierWarning = '';
+                    if (offer.normalized_price > outlierThreshold || offer.price < 1000000) {
+                        outlierWarning = `<p class="text-xs text-warning mt-1">توجه: قیمت خارج از محدوده متعارف است.</p>`;
+                    }
+
+                    const cardHTML = `
+                        <div class="card bg-base-100 shadow-md w-full">
+                            <div class="card-body">
+                                <h2 class="card-title text-lg">${sellerName}</h2>
+                                <div class="divider my-1"></div>
+                                <p><strong>درصد سهام:</strong> ${offer.percentage_to_sell}%</p>
+                                <p><strong>قیمت پیشنهادی:</strong> <span class="${priceColorClass}">${priceFormatted} تومان</span></p>
+                                <p class="text-sm text-gray-500 mt-2">قیمت معادل ۱۰۰٪: <span class="font-bold ${priceColorClass}">${normalizedPriceFormatted} تومان</span></p>
+                                ${outlierWarning}
+                                <div class="card-actions justify-end mt-4">
+                                    <a href="offer_detail.html?id=${offer.id}&nid=${currentNationalId}" class="btn btn-primary btn-sm">مشاهده و درخواست خرید</a>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    containerEl.innerHTML += cardHTML;
+                });
+            } else {
+                noOffersEl.querySelector('p').textContent = offers.error || 'خطا در بارگذاری اطلاعات.';
+                noOffersEl.classList.remove('hidden');
             }
+        } catch (error) {
+            loadingEl.classList.add('hidden');
+            noOffersEl.querySelector('p').textContent = 'خطا در ارتباط با سرور.';
+            noOffersEl.classList.remove('hidden');
         }
-
-        function viewOffer(offerId) {
-            window.location.href = `offer_detail.html?nid=${nationalId}&offer_id=${offerId}`;
-        }
-
-        function logout() {
-            showConfirm('خروج', 'آیا می‌خواهید از سامانه خارج شوید؟', () => window.location.href = 'index.html');
-        }
-
-        window.onload = loadOffers;
-    </script>
+    }
+</script>
 </body>
 </html>

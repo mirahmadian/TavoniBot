@@ -3,71 +3,198 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>فروش سهم</title>
+    <title>ثبت پیشنهاد فروش - سامانه تعاونی</title>
     <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.20/dist/full.min.css" rel="stylesheet" />
     <link href="https://cdn.jsdelivr.net/npm/@fontsource/vazirmatn@latest/index.css" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { font-family: Vazirmatn, sans-serif; background-color: #f0f2f5; }
-        .modal-box { max-width: 400px; }
     </style>
 </head>
 <body class="p-4 md:p-8">
-    <div class="max-w-md mx-auto bg-white p-6 rounded-2xl shadow-md text-center">
-        <h1 class="text-xl font-semibold mb-4">فروش سهم</h1>
-        <input type="number" id="percentage" placeholder="درصد سهم (0-100)" class="input input-bordered w-full mb-4 text-center" min="1" max="100">
-        <input type="number" id="price" placeholder="قیمت پیشنهادی (تومان)" class="input input-bordered w-full mb-4 text-center" min="0">
-        <button onclick="sellShare()" class="btn btn-primary w-full">ثبت پیشنهاد فروش</button>
-        <a href="dashboard.html?nid=" id="back_link" class="btn btn-ghost w-full mt-4">بازگشت</a>
-        <button onclick="logout()" class="btn btn-error w-full mt-4">خروج از سامانه</button>
+    <div class="max-w-2xl mx-auto bg-white p-8 rounded-2xl shadow-md">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold">ثبت پیشنهاد جدید برای فروش سهام</h1>
+            <a id="dashboard_link" href="#" class="btn btn-sm btn-ghost">بازگشت به داشبورد</a>
+        </div>
+        
+        <p class="text-center mb-4">میزان سهم قابل فروش شما: <span id="share_percentage" class="font-bold text-primary">...</span> درصد</p>
+
+        <div class="form-control w-full mb-4">
+            <label class="label"><span class="label-text">درصد سهام برای فروش را انتخاب کنید:</span></label>
+            <select id="percentage_to_sell" class="select select-bordered">
+                <option disabled selected>یک گزینه را انتخاب کنید</option>
+                <option value="25">۲۵ درصد</option>
+                <option value="50">۵۰ درصد</option>
+                <option value="75">۷۵ درصد</option>
+                <option value="100">۱۰۰ درصد (فروش کامل)</option>
+            </select>
+        </div>
+
+        <div class="form-control w-full mb-4">
+            <label class="label"><span class="label-text">قیمت پیشنهادی خود را به تومان وارد کنید:</span></label>
+            <input type="text" id="price" placeholder="مثال: 150,000,000" class="input input-bordered text-left" dir="ltr">
+        </div>
+
+        <div class="form-control">
+            <label class="label cursor-pointer justify-start gap-2">
+                <input type="checkbox" id="terms_agree" class="checkbox checkbox-primary" />
+                <span class="label-text">من <a href="#" onclick="terms_modal.showModal()" class="link link-primary">قوانین و مقررات واگذاری سهام</a> را می‌پذیرم.</span> 
+            </label>
+        </div>
+
+        <div class="mt-6">
+            <button id="submit_offer_btn" onclick="validateOffer()" class="btn btn-primary w-full">ثبت نهایی پیشنهاد فروش</button>
+        </div>
     </div>
-    <dialog id="confirm_modal" class="modal">
+
+    <dialog id="terms_modal" class="modal">
         <div class="modal-box">
-            <h3 id="confirm_title" class="font-bold text-lg"></h3>
-            <p id="confirm_message" class="py-4"></p>
+            <h3 class="font-bold text-lg">قوانین و مقررات واگذاری سهام</h3>
+            <p class="py-4">۱. واگذاری سهام صرفاً بین اعضای تعاونی مجاز است.</p>
+            <p class="py-4">۲. قیمت‌گذاری به صورت توافقی بوده و تعاونی مسئولیتی در قبال آن ندارد.</p>
+            <p class="py-4">۳. پس از تأیید نهایی، مبلغی به عنوان کارمزد به حساب تعاونی واریز خواهد شد.</p>
             <div class="modal-action">
-                <button id="confirm_yes" class="btn btn-success">بله</button>
-                <button id="confirm_no" class="btn btn-error">خیر</button>
+                <form method="dialog"><button class="btn">متوجه شدم</button></form>
             </div>
         </div>
     </dialog>
-    <script>
-        const API_BACKEND_URL = "https://tavonibot.onrender.com";
-        const urlParams = new URLSearchParams(window.location.search);
-        const nationalId = urlParams.get('nid');
-        document.getElementById('back_link').href += nationalId;
 
-        function showConfirm(title, message, onConfirm) {
-            const modal = document.getElementById('confirm_modal');
-            document.getElementById('confirm_title').textContent = title;
-            document.getElementById('confirm_message').textContent = message;
-            document.getElementById('confirm_yes').onclick = () => { onConfirm(); modal.close(); };
-            document.getElementById('confirm_no').onclick = () => modal.close();
-            modal.showModal();
+    <dialog id="confirm_modal" class="modal">
+        <div class="modal-box text-center">
+            <h3 class="font-bold text-lg">آیا از ثبت این پیشنهاد مطمئن هستید؟</h3>
+            <p id="confirm_text" class="py-4"></p>
+            <div class="modal-action justify-center gap-4">
+                <button onclick="submitOffer()" class="btn btn-success">بله، ثبت کن</button>
+                <form method="dialog"><button class="btn btn-ghost">خیر، انصراف</button></form>
+            </div>
+        </div>
+    </dialog>
+
+    <dialog id="message_modal" class="modal">
+        <div class="modal-box text-center">
+            <h3 id="modal_title" class="font-bold text-lg"></h3>
+            <p id="modal_message" class="py-4"></p>
+            <div class="modal-action justify-center">
+                <form method="dialog"><button id="modal_button" class="btn">بستن</button></form>
+            </div>
+        </div>
+    </dialog>
+
+<script>
+    const API_BACKEND_URL = "https://tavonibot.onrender.com";
+    let currentNationalId = '';
+
+    // تابع نمایش پاپ‌آپ (Modal)
+    function showModal(title, message, isSuccess) {
+        const modal = document.getElementById('message_modal');
+        document.getElementById('modal_title').textContent = title;
+        document.getElementById('modal_message').textContent = message;
+        const modalButton = document.getElementById('modal_button');
+        modalButton.className = 'btn';
+        if (isSuccess) { modalButton.classList.add('btn-success'); } 
+        else { modalButton.classList.add('btn-error'); }
+        modal.showModal();
+    }
+    
+    // تابع برای قالب‌بندی اعداد در باکس قیمت
+    const priceInput = document.getElementById('price');
+    priceInput.addEventListener('input', (e) => {
+        let value = e.target.value.replace(/,/g, '');
+        if (!isNaN(value) && value !== '' && value !== null) {
+            e.target.value = parseInt(value, 10).toLocaleString('en-US');
+        } else {
+            e.target.value = '';
+        }
+    });
+
+    // تابع اعتبارسنجی اولیه فرم قبل از ارسال
+    function validateOffer() {
+        const percentage = document.getElementById('percentage_to_sell').value;
+        const price = document.getElementById('price').value;
+        const terms = document.getElementById('terms_agree').checked;
+
+        if (!terms) {
+            showModal('خطا', 'لطفاً ابتدا قوانین و مقررات را بپذیرید.', false);
+            return;
+        }
+        if (isNaN(parseInt(percentage))) {
+            showModal('خطا', 'لطفاً درصد سهام برای فروش را انتخاب کنید.', false);
+            return;
+        }
+        if (price === '') {
+            showModal('خطا', 'لطفاً قیمت پیشنهادی را وارد کنید.', false);
+            return;
         }
 
-        async function sellShare() {
-            const percentage = document.getElementById('percentage').value;
-            const price = document.getElementById('price').value;
-            if (!percentage || !price || percentage < 1 || percentage > 100 || price < 0) {
-                showConfirm('خطا', 'لطفاً درصد و قیمت معتبر وارد کنید.', () => {});
-                return;
-            }
-            showConfirm('تأیید', `آیا از فروش ${percentage}% با قیمت ${price} تومان مطمئن هستید؟`, () => {
-                fetch(`${API_BACKEND_URL}/api/sell-share`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({national_id: nationalId, percentage_to_sell: parseInt(percentage), price: parseInt(price)})
-                }).then(res => res.json()).then(result => {
-                    if (res.ok) showConfirm('موفق', 'پیشنهاد فروش ثبت شد.', () => window.location.href = `dashboard.html?nid=${nationalId}`);
-                    else showConfirm('خطا', result.error, () => {});
-                }).catch(() => showConfirm('خطا', 'ارتباط با سرور برقرار نشد.', () => {}));
+        const cleanPrice = price.replace(/,/g, '');
+        const confirmText = `شما قصد دارید ${percentage}% از سهم خود را به قیمت ${parseInt(cleanPrice).toLocaleString('fa-IR')} تومان برای فروش ثبت کنید.`;
+        document.getElementById('confirm_text').textContent = confirmText;
+        confirm_modal.showModal();
+    }
+
+    // تابع نهایی برای ارسال پیشنهاد به سرور
+    async function submitOffer() {
+        confirm_modal.close();
+        const submitBtn = document.getElementById('submit_offer_btn');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="loading loading-spinner"></span> در حال ثبت...';
+        
+        const percentage = document.getElementById('percentage_to_sell').value;
+        const price = document.getElementById('price').value.replace(/,/g, '');
+
+        try {
+            const response = await fetch(`${API_BACKEND_URL}/api/sale-offers`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    national_id: currentNationalId,
+                    percentage_to_sell: parseInt(percentage),
+                    price: parseInt(price)
+                })
             });
-        }
+            const result = await response.json();
 
-        function logout() {
-            showConfirm('خروج', 'آیا می‌خواهید از سامانه خارج شوید؟', () => window.location.href = 'index.html');
+            if (response.ok) {
+                const modal = document.getElementById('message_modal');
+                showModal('موفقیت', result.message, true);
+                modal.addEventListener('close', () => {
+                    window.location.href = `dashboard.html?nid=${currentNationalId}`;
+                }, { once: true });
+            } else {
+                showModal('خطا', result.error, false);
+            }
+        } catch(error) {
+            showModal('خطا', 'خطا در برقراری ارتباط با سرور.', false);
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'ثبت نهایی پیشنهاد فروش';
         }
-    </script>
+    }
+
+    // تابع برای گرفتن اطلاعات کاربر از سرور
+    async function fetchMemberData() {
+        try {
+            const response = await fetch(`${API_BACKEND_URL}/get-member-data?nid=${currentNationalId}`);
+            const data = await response.json();
+            if (response.ok) {
+                document.getElementById('share_percentage').textContent = data.available_share_percentage;
+            } else {
+                document.getElementById('share_percentage').textContent = 'خطا';
+            }
+        } catch (error) {
+            document.getElementById('share_percentage').textContent = 'خطا';
+        }
+    }
+
+    // این تابع هنگام بارگذاری صفحه اجرا می‌شود
+    window.onload = function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        currentNationalId = urlParams.get('nid');
+        document.getElementById('dashboard_link').href = `dashboard.html?nid=${currentNationalId}`;
+        fetchMemberData();
+    };
+
+</script>
 </body>
 </html>
