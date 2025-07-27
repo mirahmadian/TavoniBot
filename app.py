@@ -1,127 +1,233 @@
-<!DOCTYPE html>
-<html lang="fa" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ورود به سامانه</title>
-    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.20/dist/full.min.css" rel="stylesheet" />
-    <link href="https://cdn.jsdelivr.net/npm/@fontsource/vazirmatn@latest/index.css" rel="stylesheet" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body {
-            font-family: Vazirmatn, sans-serif;
-            background-color: #f0f2f5;
-        }
-    </style>
-</head>
-<body class="flex items-center justify-center min-h-screen">
-    <div class="bg-white p-6 rounded-lg shadow-md w-full max-w-md text-center">
-        <h1 class="text-xl font-semibold mb-6">لطفاً کدملی خود را وارد کنید</h1>
-        <input type="text" id="national_id" placeholder="مثال: 1234567890" class="input input-bordered w-full mb-4 text-center" dir="ltr" maxlength="10">
-        <button onclick="startLogin()" class="btn btn-primary w-full">دریافت کد تأیید</button>
-    </div>
-    <dialog id="message_modal" class="modal">
-        <div class="modal-box text-center">
-            <h3 id="modal_title" class="font-bold text-lg"></h3>
-            <p id="modal_message" class="py-4"></p>
-            <div class="modal-action justify-center">
-                <form method="dialog"><button id="modal_button" class="btn">بستن</button></form>
-            </div>
-        </div>
-    </dialog>
-    <dialog id="otp_modal" class="modal">
-        <div class="modal-box text-center">
-            <h3 class="font-bold text-lg">ورود با کد تأیید</h3>
-            <div class="flex justify-center gap-2 mb-4">
-                <input type="text" id="otp_digit_1" class="input input-bordered w-12 text-center" maxlength="1" dir="ltr">
-                <input type="text" id="otp_digit_2" class="input input-bordered w-12 text-center" maxlength="1" dir="ltr">
-                <input type="text" id="otp_digit_3" class="input input-bordered w-12 text-center" maxlength="1" dir="ltr">
-                <input type="text" id="otp_digit_4" class="input input-bordered w-12 text-center" maxlength="1" dir="ltr">
-                <input type="text" id="otp_digit_5" class="input input-bordered w-12 text-center" maxlength="1" dir="ltr">
-            </div>
-            <button onclick="verifyOtp()" class="btn btn-primary w-full">تأیید</button>
-            <div class="modal-action">
-                <form method="dialog"><button class="btn btn-ghost">انصراف</button></form>
-            </div>
-        </div>
-    </dialog>
-    <script>
-        const API_BACKEND_URL = "https://tavonibot.onrender.com";
+from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
+from supabase import create_client, Client
+from dotenv import load_dotenv
+import requests
+import random
+import os
+import time
+import secrets
+import sys
 
-        function showModal(title, message, isSuccess) {
-            const modal = document.getElementById('message_modal');
-            document.getElementById('modal_title').textContent = title;
-            document.getElementById('modal_message').textContent = message;
-            const modalButton = document.getElementById('modal_button');
-            modalButton.className = 'btn';
-            if (isSuccess) modalButton.classList.add('btn-success');
-            else modalButton.classList.add('btn-error');
-            modal.showModal();
-        }
+load_dotenv()
 
-        async function startLogin() {
-            const national_id = document.getElementById('national_id').value;
-            if (!national_id) return showModal('خطا', 'کد ملی را وارد کنید.', false);
-            try {
-                const response = await fetch(`${API_BACKEND_URL}/api/start-login`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({national_id})
-                });
-                const result = await response.json();
-                if (response.ok) {
-                    document.getElementById('otp_modal').showModal();
-                    // فوکوس روی اولین باکس
-                    document.getElementById('otp_digit_1').focus();
-                } else showModal('خطا', result.error, false);
-            } catch (e) {showModal('خطا', 'ارتباط با سرور برقرار نشد.', false);}
-        }
+# ---- بررسی امنیتی اولیه ----
+required_vars = ["BOT_TOKEN", "SUPABASE_URL", "SUPABASE_KEY"]
+missing_vars = [var for var in required_vars if os.environ.get(var) is None]
+if missing_vars:
+    print(f"FATAL ERROR: The following environment variables are missing: {', '.join(missing_vars)}")
+    sys.exit(1)
+print("All critical environment variables are set. Proceeding...")
 
-        function getOtpCode() {
-            return [
-                document.getElementById('otp_digit_1').value,
-                document.getElementById('otp_digit_2').value,
-                document.getElementById('otp_digit_3').value,
-                document.getElementById('otp_digit_4').value,
-                document.getElementById('otp_digit_5').value
-            ].join('');
-        }
+app = Flask(__name__, static_folder='static')
+CORS(app, resources={r"/*": {"origins": "*"}})
 
-        // جابه‌جایی خودکار بین باکس‌ها
-        const otpInputs = ['otp_digit_1', 'otp_digit_2', 'otp_digit_3', 'otp_digit_4', 'otp_digit_5'];
-        otpInputs.forEach((id, index) => {
-            const input = document.getElementById(id);
-            input.addEventListener('input', function(e) {
-                if (this.value.length === this.maxLength) {
-                    const nextInput = document.getElementById(otpInputs[index + 1]);
-                    if (nextInput) nextInput.focus();
-                }
-            });
-            input.addEventListener('keydown', function(e) {
-                if (e.key === 'Backspace' && !this.value && index > 0) {
-                    document.getElementById(otpInputs[index - 1]).focus();
-                }
-            });
-        });
+# --- تنظیمات و اتصالات ---
+OTP_EXPIRATION_SECONDS = 120
+AVERAGE_PRICE_THRESHOLD = 1000000  # حد متوسط قیمت (تومان در هر درصد)
 
-        async function verifyOtp() {
-            const national_id = document.getElementById('national_id').value;
-            const otp_code = getOtpCode();
-            if (otp_code.length !== 5 || !/^\d+$/.test(otp_code)) return showModal('خطا', 'کد تأیید باید ۵ رقم باشد.', false);
-            try {
-                const response = await fetch(`${API_BACKEND_URL}/api/verify-otp`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({national_id, otp_code})
-                });
-                const result = await response.json();
-                if (response.ok) {
-                    if (result.action === 'go_to_profile') window.location.href = `profile.html?nid=${national_id}`;
-                    else if (result.action === 'go_to_dashboard') window.location.href = `dashboard.html?nid=${national_id}`;
-                } else showModal('خطا', result.error, false);
-                document.getElementById('otp_modal').close();
-            } catch (e) {showModal('خطا', 'ارتباط با سرور برقرار نشد.', false);}
-        }
-    </script>
-</body>
-</html>
+try:
+    BOT_TOKEN = os.environ.get("BOT_TOKEN")
+    BALE_API_URL = f"https://tapi.bale.ai/bot{BOT_TOKEN}"
+    url: str = os.environ.get("SUPABASE_URL")
+    key: str = os.environ.get("SUPABASE_KEY")
+    supabase: Client = create_client(url, key)
+    print("Successfully connected to Supabase.")
+except Exception as e:
+    print(f"ERROR: Could not connect to services. {e}")
+    sys.exit(1)
+
+linking_tokens = {}
+
+# --- مسیرهای اصلی ---
+@app.route('/')
+def serve_index(): return send_from_directory(app.static_folder, 'index.html')
+@app.route('/profile.html')
+def serve_profile(): return send_from_directory(app.static_folder, 'profile.html')
+@app.route('/dashboard.html')
+def serve_dashboard(): return send_from_directory(app.static_folder, 'dashboard.html')
+@app.route('/sell_share.html')
+def serve_sell_share(): return send_from_directory(app.static_folder, 'sell_share.html')
+@app.route('/view_offers.html')
+def serve_view_offers(): return send_from_directory(app.static_folder, 'view_offers.html')
+@app.route('/offer_detail.html')
+def serve_offer_detail(): return send_from_directory(app.static_folder, 'offer_detail.html')
+@app.route('/admin_dashboard.html')
+def serve_admin_dashboard(): return send_from_directory(app.static_folder, 'admin_dashboard.html')
+@app.route('/health-check')
+def health_check(): 
+    print("Health check requested")
+    return '', 204
+
+# --- API Endpoints ---
+@app.route('/api/member-data')
+def get_member_data():
+    national_id = request.args.get('nid')
+    if not national_id: return jsonify({"error": "کد ملی ارسال نشده است."}), 400
+    try:
+        member_res = supabase.table('member').select("first_name, last_name, nationalcode, phonenumber, address, postal_code, share_percentage").eq('nationalcode', national_id).execute()
+        if not member_res.data:
+            print(f"No member found for national_id: {national_id}")
+            return jsonify({"error": "کاربری با این کد ملی یافت نشد."}), 404
+        member_data = member_res.data[0]
+        if 'share_percentage' not in member_data:
+            member_data['share_percentage'] = 100
+        offers_res = supabase.table('sale_offers').select('percentage_to_sell').eq('seller_national_id', national_id).eq('status', 'active').execute()
+        listed_percentage = sum(offer['percentage_to_sell'] for offer in offers_res.data) if offers_res.data else 0
+        member_data['available_share_percentage'] = max(0, member_data.get('share_percentage', 100) - listed_percentage)
+        print(f"Member data retrieved: {member_data}")
+        return jsonify(member_data)
+    except Exception as e:
+        print(f"Member Data Error: {e}")
+        return jsonify({"error": f"خطا در دریافت اطلاعات کاربر: {str(e)}"}), 500
+
+@app.route('/api/start-login', methods=['POST'])
+def start_login():
+    data = request.get_json(silent=True)
+    if not data or data.get('honeypot'): return jsonify({"error": "درخواست نامعتبر است."}), 400
+    national_id = data.get('national_id')
+    if not national_id: return jsonify({"error": "کد ملی الزامی است"}), 400
+    try:
+        response = supabase.table('member').select("phonenumber, chat_id").eq('nationalcode', national_id).execute()
+        if not response.data: return jsonify({"error": "کاربر یافت نشد."}), 404
+        user = response.data[0]
+        if user.get('phonenumber') and user.get('chat_id'):
+            otp_code = random.randint(10000, 99999)
+            supabase.table('otp_codes').upsert({"national_id": national_id, "otp_code": str(otp_code), "timestamp": time.time()}).execute()
+            otp_message = f"*تعاونی مصرف کارکنان سازمان حج و زیارت*\n\nسهامدار گرامی، کد محرمانه زیر جهت ورود به سامانه تعاونی مصرف می‌باشد. لطفاً این کد را در اختیار دیگران قرار ندهید.\nکد ورود شما: {otp_code}"
+            requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": user['chat_id'], "text": otp_message, "parse_mode": "Markdown"})
+            return jsonify({"action": "verify_otp"})
+        else:
+            token = secrets.token_urlsafe(16)
+            linking_tokens[token] = national_id
+            return jsonify({"action": "register", "linking_token": token})
+    except Exception as e:
+        print(f"Login Error: {e}")
+        return jsonify({"error": "خطا در ورود."}), 500
+
+@app.route('/api/verify-otp', methods=['POST'])
+def verify_otp():
+    data = request.get_json()
+    national_id, otp_code = data.get('national_id'), data.get('otp_code')
+    if not all([national_id, otp_code]): return jsonify({"error": "اطلاعات ناقص است."}), 400
+    try:
+        response = supabase.table('otp_codes').select("*").eq('national_id', national_id).execute()
+        if not response.data: return jsonify({"error": "فرآیند ورود یافت نشد."}), 404
+        stored_otp = response.data[0]
+        if time.time() - stored_otp["timestamp"] > OTP_EXPIRATION_SECONDS: 
+            supabase.table('otp_codes').delete().eq('national_id', national_id).execute()
+            return jsonify({"error": "کد تأیید منقضی شده است."}), 410
+        if stored_otp["otp_code"] == otp_code:
+            supabase.table('otp_codes').delete().eq('national_id', national_id).execute()
+            profile = supabase.table('member').select("address, postal_code").eq('nationalcode', national_id).execute()
+            if profile.data and profile.data[0].get('address') and profile.data[0].get('postal_code'):
+                return jsonify({"message": "ورود موفق", "action": "go_to_dashboard"})
+            else:
+                return jsonify({"message": "ورود موفق", "action": "go_to_profile"})
+        return jsonify({"error": "کد وارد شده صحیح نیست."}), 400
+    except Exception as e:
+        print(f"Verify OTP Error: {e}")
+        return jsonify({"error": "خطا در تأیید."}), 500
+
+@app.route('/api/update-profile', methods=['POST'])
+def update_profile():
+    data = request.get_json(silent=True)
+    if not data: return jsonify({"error": "درخواست نامعتبر است."}), 400
+    national_id, postal_code, address = data.get('national_id'), data.get('postal_code'), data.get('address')
+    if not all([national_id, postal_code, address]) or not postal_code or not address:
+        return jsonify({"error": "تمامی فیلدها الزامی هستند."}), 400
+    try:
+        supabase.table('member').update({"postal_code": postal_code, "address": address}).eq('nationalcode', national_id).execute()
+        return jsonify({"message": "پروفایل به‌روز شد", "action": "go_to_dashboard"})
+    except Exception as e:
+        print(f"Profile Update Error: {e}")
+        return jsonify({"error": "خطا در به‌روزرسانی."}), 500
+
+@app.route('/api/dashboard-data')
+def get_dashboard_data():
+    national_id = request.args.get('nid')
+    if not national_id: return jsonify({"error": "کد ملی ارسال نشده است."}), 400
+    try:
+        member = supabase.table('member').select("share_percentage, first_name, last_name").eq('nationalcode', national_id).execute()
+        if not member.data: return jsonify({"error": "کاربر یافت نشد."}), 404
+        share = member.data[0].get('share_percentage', 100)
+        offers = supabase.table('sale_offers').select('percentage_to_sell').eq('seller_national_id', national_id).eq('status', 'active').execute()
+        listed = sum(offer['percentage_to_sell'] for offer in offers.data) if offers.data else 0
+        available = max(0, share - listed)
+        return jsonify({"share_percentage": share, "available_share": available, "first_name": member.data[0]['first_name'], "last_name": member.data[0]['last_name']})
+    except Exception as e:
+        print(f"Dashboard Data Error: {e}")
+        return jsonify({"error": "خطا در دریافت داده‌ها."}), 500
+
+@app.route('/api/sell-share', methods=['POST'])
+def sell_share():
+    data = request.get_json(silent=True)
+    if not data: return jsonify({"error": "درخواست نامعتبر است."}), 400
+    national_id, percentage = data.get('national_id'), data.get('percentage_to_sell')
+    if not all([national_id, percentage]): return jsonify({"error": "اطلاعات ناقص است."}), 400
+    try:
+        member = supabase.table('member').select("share_percentage").eq('nationalcode', national_id).execute()
+        if not member.data: return jsonify({"error": "کاربر یافت نشد."}), 404
+        total_share = member.data[0].get('share_percentage', 100)
+        offers = supabase.table('sale_offers').select('percentage_to_sell').eq('seller_national_id', national_id).eq('status', 'active').execute()
+        listed = sum(offer['percentage_to_sell'] for offer in offers.data) if offers.data else 0
+        if (listed + percentage) > total_share:
+            return jsonify({"error": f"سهم کافی نیست. حداکثر {total_share - listed}% قابل فروش است."}), 400
+        supabase.table('sale_offers').insert({"seller_national_id": national_id, "percentage_to_sell": percentage, "price": 0, "status": "active"}).execute()
+        return jsonify({"message": "پیشنهاد فروش ثبت شد."})
+    except Exception as e:
+        print(f"Sell Share Error: {e}")
+        return jsonify({"error": "خطا در ثبت پیشنهاد."}), 500
+
+@app.route('/api/sale-offers')
+def get_sale_offers():
+    try:
+        offers = supabase.table('sale_offers').select('*, member:seller_national_id (first_name, last_name)').eq('status', 'active').execute()
+        if offers.data:
+            sorted_offers = sorted(offers.data, key=lambda x: (x.get('price', 0) / x.get('percentage_to_sell', 1) if x.get('percentage_to_sell', 1) > 0 else float('inf')))
+            for offer in sorted_offers:
+                normalized_price = (offer['price'] / offer['percentage_to_sell']) * 100 if offer['percentage_to_sell'] > 0 else 0
+                offer['is_unusual'] = normalized_price > AVERAGE_PRICE_THRESHOLD
+            return jsonify(sorted_offers)
+        return jsonify([])
+    except Exception as e:
+        print(f"Get Offers Error: {e}")
+        return jsonify({"error": "خطا در دریافت پیشنهادات."}), 500
+
+@app.route('/api/offer-detail/<int:offer_id>', methods=['POST'])
+def offer_detail(offer_id):
+    data = request.get_json(silent=True)
+    buyer_nid = data.get('buyer_nid')
+    if not buyer_nid: return jsonify({"error": "کد ملی خریدار ارسال نشده است."}), 400
+    try:
+        offer = supabase.table('sale_offers').select('seller_national_id, percentage_to_sell, price, status').eq('id', offer_id).eq('status', 'active').execute()
+        if not offer.data: return jsonify({"error": "پیشنهاد یافت نشد."}), 404
+        offer_data = offer.data[0]
+        if offer_data['seller_national_id'] == buyer_nid:
+            return jsonify({"error": "نمی‌توانید پیشنهاد خود را بخرید."}), 400
+        supabase.table('sale_offers').update({'status': 'pending'}).eq('id', offer_id).execute()
+        seller = supabase.table('member').select('chat_id, first_name, last_name').eq('nationalcode', offer_data['seller_national_id']).execute()
+        if seller.data and seller.data[0].get('chat_id'):
+            buyer = supabase.table('member').select('first_name, last_name').eq('nationalcode', buyer_nid).execute()
+            buyer_name = f"{buyer.data[0]['first_name']} {buyer.data[0]['last_name']}"
+            message = f"کاربر {buyer_name} تمایل به خرید {offer_data['percentage_to_sell']}% سهم شما دارد."
+            requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": seller.data[0]['chat_id'], "text": message})
+        return jsonify({"message": "درخواست ثبت شد.", "offer": offer_data})
+    except Exception as e:
+        print(f"Offer Detail Error: {e}")
+        return jsonify({"error": "خطا در پردازش."}), 500
+
+@app.route('/api/admin-data')
+def get_admin_data():
+    try:
+        offers = supabase.table('sale_offers').select('*, member:seller_national_id (first_name, last_name)').execute()
+        requests = supabase.table('purchase_requests').select('*, sale_offers(seller_national_id, percentage_to_sell), member:buyer_national_id (first_name, last_name)').execute()
+        return jsonify({"offers": offers.data, "requests": requests.data})
+    except Exception as e:
+        print(f"Admin Data Error: {e}")
+        return jsonify({"error": "خطا در دریافت داده‌ها."}), 500
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 10000))
+    print(f"Starting Flask server on port {port}")
+    app.run(host='0.0.0.0', port=port)
