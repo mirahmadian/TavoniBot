@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>درخواست‌های خرید</title>
+    <title>درخواست‌های خرید دریافت‌شده</title>
     <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.20/dist/full.min.css" rel="stylesheet" />
     <link href="https://cdn.jsdelivr.net/npm/@fontsource/vazirmatn@latest/index.css" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
@@ -59,17 +59,18 @@
                     });
                     if (userRequests.length > 0) {
                         userRequests.forEach(req => {
-                            const buyer = req['member:buyer_national_id'];
+                            const buyer = req['member:buyer_national_id'] || {};
+                            const offer = req.sale_offers || {};
                             const div = document.createElement('div');
                             div.className = 'card bg-base-100 shadow-md p-4 rounded-lg';
                             div.innerHTML = `
-                                <p>خریدار: ${buyer?.first_name || ''} ${buyer?.last_name || ''}</p>
-                                <p>شماره تماس: ${buyer?.phonenumber || 'موجود نیست'}</p>
-                                <p>درصد سهم: ${req.sale_offers?.percentage_to_sell || 0}%</p>
-                                <p>قیمت: ${req.sale_offers?.price?.toLocaleString('fa-IR') || '0'} تومان</p>
+                                <p>خریدار: ${buyer.first_name || 'نامشخص'} ${buyer.last_name || ''}</p>
+                                <p>شماره تماس: ${buyer.phonenumber || 'موجود نیست'}</p>
+                                <p>درصد سهم: ${offer.percentage_to_sell || 0}%</p>
+                                <p>قیمت: ${(offer.price || 0).toLocaleString('fa-IR')} تومان</p>
                                 <div class="flex gap-2 mt-2">
-                                    <button onclick="approveRequest(${req.id})" class="btn btn-success btn-sm">تأیید</button>
-                                    <button onclick="rejectRequest(${req.id})" class="btn btn-error btn-sm">رد</button>
+                                    <button onclick="approveRequest(${req.id || 0})" class="btn btn-success btn-sm">تأیید</button>
+                                    <button onclick="rejectRequest(${req.id || 0})" class="btn btn-error btn-sm">رد</button>
                                 </div>
                             `;
                             requestsList.appendChild(div);
@@ -82,7 +83,7 @@
                 }
             } catch (e) {
                 console.error('خطا در بارگذاری درخواست‌ها:', e);
-                document.getElementById('requests_list').innerHTML = '<p>خطا در بارگذاری درخواست‌ها. لطفاً دوباره تلاش کنید.</p>';
+                document.getElementById('requests_list').innerHTML = '<p>خطا در بارگذاری درخواست‌ها. لطفاً دوباره تلاش کنید یا با پشتیبانی تماس بگیرید.</p>';
             }
         }
 
