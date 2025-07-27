@@ -5,6 +5,10 @@
     <div class="max-w-2xl mx-auto bg-white p-8 rounded-2xl shadow-md">
         <h1 class="text-2xl font-bold mb-6" id="welcome">خوش آمدید</h1>
         <p>میزان سهام قابل فروش: <span id="available_share" class="font-bold"></span>%</p>
+        <div class="mt-6">
+            <h2 class="text-xl font-semibold mb-4">پیشنهادات فروش شما</h2>
+            <div id="offers_list" class="space-y-4"></div>
+        </div>
         <div class="mt-6 space-x-2">
             <a href="sell_share.html?nid=" id="sell_link" class="btn btn-error">قصد فروش دارم</a>
             <a href="view_offers.html?nid=" id="view_offers_link" class="btn btn-primary">مشاهده پیشنهادات</a>
@@ -31,9 +35,55 @@
                 const dashboardData = await dashboardResponse.json();
                 if (dashboardResponse.ok) {
                     document.getElementById('available_share').textContent = dashboardData.available_share;
-                } else console.error(dashboardData.error);
-            } catch (e) {console.error('خطا در بارگذاری داده‌ها:', e);}
+                }
+
+                // بارگذاری پیشنهادات فروش کاربر
+                const offersResponse = await fetch(`${API_BACKEND_URL}/api/sale-offers`);
+                const offers = await offersResponse.json();
+                const userOffers = offers.filter(offer => offer.seller_national_id === nationalId && offer.status === 'active');
+                const offersList = document.getElementById('offers_list');
+                offersList.innerHTML = '';
+                if (userOffers.length > 0) {
+                    userOffers.forEach(offer => {
+                        const div = document.createElement('div');
+                        div.className = 'card bg-base-100 shadow-md p-4 rounded-lg';
+                        div.innerHTML = `
+                            <p>درصد: ${offer.percentage_to_sell}%</p>
+                            <p>قیمت: ${offer.price.toLocaleString('fa-IR')} تومان</p>
+                            <button onclick="cancelOffer(${offer.id})" class="btn btn-error btn-sm mt-2">لغو پیشنهاد</button>
+                        `;
+                        offersList.appendChild(div);
+                    });
+                } else {
+                    offersList.innerHTML = '<p>شما هیچ پیشنهادی برای فروش ثبت نکرده‌اید.</p>';
+                }
+            } catch (e) {
+                console.error('خطا در بارگذاری داده‌ها:', e);
+                document.getElementById('offers_list').innerHTML = '<p>خطا در بارگذاری پیشنهادات.</p>';
+            }
         }
+
+        async function cancelOffer(offerId) {
+            if (confirm('آیا از لغو این پیشنهاد مطمئن هستید؟')) {
+                try {
+                    const response = await fetch(`${API_BACKEND_URL}/api/cancel-offer/${offerId}`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({national_id: nationalId})
+                    });
+                    const result = await response.json();
+                    if (response.ok) {
+                        alert('پیشنهاد با موفقیت لغو شد.');
+                        loadData(); // بارگذاری مجدد داده‌ها
+                    } else {
+                        alert('خطا در لغو پیشنهاد: ' + result.error);
+                    }
+                } catch (e) {
+                    alert('خطا در ارتباط با سرور.');
+                }
+            }
+        }
+
         window.onload = loadData;
     </script>
 </body>

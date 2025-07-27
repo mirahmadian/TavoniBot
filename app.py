@@ -217,6 +217,22 @@ def offer_detail(offer_id):
         print(f"Offer Detail Error: {e}")
         return jsonify({"error": "خطا در پردازش."}), 500
 
+@app.route('/api/cancel-offer/<int:offer_id>', methods=['POST'])
+def cancel_offer(offer_id):
+    data = request.get_json(silent=True)
+    national_id = data.get('national_id')
+    if not national_id: return jsonify({"error": "کد ملی ارسال نشده است."}), 400
+    try:
+        offer = supabase.table('sale_offers').select('seller_national_id, status').eq('id', offer_id).execute()
+        if not offer.data: return jsonify({"error": "پیشنهاد یافت نشد."}), 404
+        if offer.data[0]['seller_national_id'] !== national_id: return jsonify({"error": "شما مجاز به لغو این پیشنهاد نیستید."}), 403
+        if offer.data[0]['status'] !== 'active': return jsonify({"error": "این پیشنهاد قابل لغو نیست."}), 400
+        supabase.table('sale_offers').update({'status': 'cancelled'}).eq('id', offer_id).execute()
+        return jsonify({"message": "پیشنهاد با موفقیت لغو شد."})
+    except Exception as e:
+        print(f"Cancel Offer Error: {e}")
+        return jsonify({"error": "خطا در لغو پیشنهاد."}), 500
+
 @app.route('/api/admin-data')
 def get_admin_data():
     try:
