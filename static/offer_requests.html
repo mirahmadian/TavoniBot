@@ -51,21 +51,26 @@
                 const response = await fetch(`${API_BACKEND_URL}/api/admin-data`);
                 const data = await response.json();
                 if (!response.ok) throw new Error('خطا در دریافت داده‌ها از سرور');
+                console.log('Received full data:', data); // لاگ کامل داده‌ها
                 const requestsList = document.getElementById('requests_list');
                 requestsList.innerHTML = '';
                 if (data.requests && data.requests.length > 0) {
                     const userRequests = data.requests.filter(req => {
                         return req.sale_offers && req.sale_offers.seller_national_id === nationalId && req.status === 'pending';
                     });
+                    console.log('Filtered requests:', userRequests); // لاگ درخواست‌های فیلترشده
                     if (userRequests.length > 0) {
                         userRequests.forEach(req => {
                             const buyer = req['member:buyer_national_id'] || {};
                             const offer = req.sale_offers || {};
+                            console.log('Buyer data for request:', buyer); // لاگ داده‌های خریدار
+                            const buyerName = buyer.first_name && buyer.last_name ? `${buyer.first_name} ${buyer.last_name}` : 'نامشخص';
+                            const buyerPhone = buyer.phonenumber || 'موجود نیست';
                             const div = document.createElement('div');
                             div.className = 'card bg-base-100 shadow-md p-4 rounded-lg';
                             div.innerHTML = `
-                                <p>خریدار: ${buyer.first_name || 'نامشخص'} ${buyer.last_name || ''}</p>
-                                <p>شماره تماس: ${buyer.phonenumber || 'موجود نیست'}</p>
+                                <p>خریدار: ${buyerName}</p>
+                                <p>شماره تماس: ${buyerPhone}</p>
                                 <p>درصد سهم: ${offer.percentage_to_sell || 0}%</p>
                                 <p>قیمت: ${(offer.price || 0).toLocaleString('fa-IR')} تومان</p>
                                 <div class="flex gap-2 mt-2">

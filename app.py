@@ -24,7 +24,7 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 
 # --- تنظیمات و اتصالات ---
 OTP_EXPIRATION_SECONDS = 120
-AVERAGE_PRICE_THRESHOLD = 1000000  # حد متوسط قیمت (تومان در هر درصد)
+AVERAGE_PRICE_THRESHOLD = 350000000  # حد متوسط قیمت (تومان در هر درصد)
 
 try:
     BOT_TOKEN = os.environ.get("BOT_TOKEN")
@@ -208,9 +208,12 @@ def offer_detail(offer_id):
         if offer_data['seller_national_id'] == buyer_nid:
             return jsonify({"error": "نمی‌توانید پیشنهاد خود را بخرید."}), 400
         buyer = supabase.table('member').select('phonenumber, first_name, last_name').eq('nationalcode', buyer_nid).execute()
-        if not buyer.data: return jsonify({"error": "اطلاعات خریدار یافت نشد."}), 404
-        buyer_phone = buyer.data[0]['phonenumber'] or 'شماره موجود نیست'
-        message = f"کاربر {buyer.data[0]['first_name']} {buyer.data[0]['last_name']} (شماره: {buyer_phone}) تمایل به خرید {offer_data['percentage_to_sell']}% سهم شما با قیمت {offer_data['price']} تومان دارد."
+        if not buyer.data:
+            print(f"No buyer data found for national_id: {buyer_nid}")
+            return jsonify({"error": "اطلاعات خریدار یافت نشد."}), 404
+        buyer_data = buyer.data[0]
+        buyer_phone = buyer_data.get('phonenumber', 'شماره موجود نیست')
+        message = f"کاربر {buyer_data.get('first_name', 'نامشخص')} {buyer_data.get('last_name', '')} (شماره: {buyer_phone}) تمایل به خرید {offer_data['percentage_to_sell']}% سهم شما با قیمت {offer_data['price']} تومان دارد."
         supabase.table('purchase_requests').insert({"offer_id": offer_id, "buyer_national_id": buyer_nid, "status": "pending"}).execute()
         seller = supabase.table('member').select('chat_id').eq('nationalcode', offer_data['seller_national_id']).execute()
         if seller.data and seller.data[0].get('chat_id'):
@@ -277,7 +280,12 @@ def get_admin_data():
     try:
         offers = supabase.table('sale_offers').select('*, member:seller_national_id (first_name, last_name)').execute()
         requests = supabase.table('purchase_requests').select('*, sale_offers(seller_national_id, percentage_to_sell, price), member:buyer_national_id (first_name, last_name, phonenumber)').execute()
-        print("Admin data requests:", requests.data)  # لاگ برای دیباگ
+        print("Admin data requests raw:", requests.data)  # لاگ خام داده‌ها
+        for req in requests.data:
+            buyer_data = req.get('member:buyer_national_id', {})
+            print(f"Request ID: {req.get('id')}, Buyer data: {buyer_data}, Buyer NID: {req.get('buyer_national_id')}")
+            if not buyer_data:
+                print(f"Warning: No buyer data for request ID: {req.get('id')}, buyer_national_id: {req.get('buyer_national_id')}")
         return jsonify({"offers": offers.data, "requests": requests.data})
     except Exception as e:
         print(f"Admin Data Error: {e}")
