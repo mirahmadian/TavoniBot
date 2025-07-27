@@ -225,8 +225,8 @@ def cancel_offer(offer_id):
     try:
         offer = supabase.table('sale_offers').select('seller_national_id, status').eq('id', offer_id).execute()
         if not offer.data: return jsonify({"error": "پیشنهاد یافت نشد."}), 404
-        if offer.data[0]['seller_national_id'] !== national_id: return jsonify({"error": "شما مجاز به لغو این پیشنهاد نیستید."}), 403
-        if offer.data[0]['status'] !== 'active': return jsonify({"error": "این پیشنهاد قابل لغو نیست."}), 400
+        if offer.data[0]['seller_national_id'] != national_id: return jsonify({"error": "شما مجاز به لغو این پیشنهاد نیستید."}), 403
+        if offer.data[0]['status'] != 'active': return jsonify({"error": "این پیشنهاد قابل لغو نیست."}), 400
         supabase.table('sale_offers').update({'status': 'cancelled'}).eq('id', offer_id).execute()
         return jsonify({"message": "پیشنهاد با موفقیت لغو شد."})
     except Exception as e:
