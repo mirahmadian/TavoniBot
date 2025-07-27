@@ -79,23 +79,23 @@
             loadingEl.classList.add('hidden');
 
             if (response.ok) {
-                if (offers.length === 0) {
+                const visibleOffers = offers.filter(offer => offer.seller_national_id !== currentNationalId);
+                
+                if (visibleOffers.length === 0) {
+                    noOffersEl.querySelector('p').textContent = "در حال حاضر هیچ پیشنهاد فعالی از سایر کاربران برای فروش وجود ندارد.";
                     noOffersEl.classList.remove('hidden');
                     return;
                 }
 
-                // منطق تحلیل قیمت‌ها
-                const prices = offers.map(o => o.normalized_price);
+                // منطق تحلیل قیمت‌ها (با آستانه حساس‌تر)
+                const prices = visibleOffers.map(o => o.normalized_price);
                 const averagePrice = prices.reduce((a, b) => a + b, 0) / prices.length;
                 const stdDev = Math.sqrt(prices.map(x => Math.pow(x - averagePrice, 2)).reduce((a, b) => a + b, 0) / prices.length);
-                const outlierThreshold = averagePrice + (1.5 * stdDev);
+                const outlierThreshold = averagePrice + (1.5 * stdDev); // آستانه حساس‌تر (۱.۵ برابر انحراف معیار)
                 const cheapThreshold = averagePrice - (0.5 * stdDev);
 
                 containerEl.innerHTML = '';
-                // --- بخش اصلاح شده ---
-                // ما به جای فیلتر کردن، مستقیماً از لیست کامل offers استفاده می‌کنیم
-                offers.forEach(offer => {
-                // --- پایان بخش اصلاح شده ---
+                visibleOffers.forEach(offer => {
                     const sellerName = `${offer.member.first_name || ''} ${offer.member.last_name || ''}`;
                     const priceFormatted = offer.price.toLocaleString('fa-IR');
                     const normalizedPriceFormatted = offer.normalized_price.toLocaleString('fa-IR');

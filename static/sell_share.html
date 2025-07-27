@@ -84,8 +84,7 @@
 <script>
     const API_BACKEND_URL = "https://tavonibot.onrender.com";
     let currentNationalId = '';
-
-    // تابع نمایش پاپ‌آپ (Modal)
+    
     function showModal(title, message, isSuccess) {
         const modal = document.getElementById('message_modal');
         document.getElementById('modal_title').textContent = title;
@@ -97,7 +96,6 @@
         modal.showModal();
     }
     
-    // تابع برای قالب‌بندی اعداد در باکس قیمت
     const priceInput = document.getElementById('price');
     priceInput.addEventListener('input', (e) => {
         let value = e.target.value.replace(/,/g, '');
@@ -108,7 +106,6 @@
         }
     });
 
-    // تابع اعتبارسنجی اولیه فرم قبل از ارسال
     function validateOffer() {
         const percentage = document.getElementById('percentage_to_sell').value;
         const price = document.getElementById('price').value;
@@ -133,7 +130,6 @@
         confirm_modal.showModal();
     }
 
-    // تابع نهایی برای ارسال پیشنهاد به سرور
     async function submitOffer() {
         confirm_modal.close();
         const submitBtn = document.getElementById('submit_offer_btn');
@@ -172,10 +168,9 @@
         }
     }
 
-    // تابع برای گرفتن اطلاعات کاربر از سرور
     async function fetchMemberData() {
         try {
-            const response = await fetch(`${API_BACKEND_URL}/get-member-data?nid=${currentNationalId}`);
+            const response = await fetch(`${API_BACKEND_URL}/api/member-data?nid=${currentNationalId}`);
             const data = await response.json();
             if (response.ok) {
                 document.getElementById('share_percentage').textContent = data.available_share_percentage;
@@ -187,14 +182,12 @@
         }
     }
 
-    // این تابع هنگام بارگذاری صفحه اجرا می‌شود
     window.onload = function() {
         const urlParams = new URLSearchParams(window.location.search);
         currentNationalId = urlParams.get('nid');
         document.getElementById('dashboard_link').href = `dashboard.html?nid=${currentNationalId}`;
         fetchMemberData();
     };
-
 </script>
 </body>
 </html>

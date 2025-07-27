@@ -81,12 +81,12 @@
 
     async function fetchUserProfile() {
         try {
-            const response = await fetch(`${API_BACKEND_URL}/get-user-profile?nid=${currentNationalId}`);
+            const response = await fetch(`${API_BACKEND_URL}/api/member-data?nid=${currentNationalId}`);
             const data = await response.json();
             if (response.ok) {
                 document.getElementById('fullName').value = `${data.first_name || ''} ${data.last_name || ''}`;
-                document.getElementById('nationalId').value = data.national_id;
-                document.getElementById('phone').value = data.phone_number;
+                document.getElementById('nationalId').value = data.nationalcode;
+                document.getElementById('phone').value = data.phonenumber || '';
                 document.getElementById('postalCode').value = data.postal_code || '';
                 document.getElementById('address').value = data.address || '';
                 document.getElementById('loading_message').classList.add('hidden');
@@ -103,18 +103,16 @@
         const postalCode = document.getElementById('postalCode').value.trim();
         const address = document.getElementById('address').value.trim();
         
-        // --- اعتبارسنجی جدید ---
         if (address === '' || postalCode === '') {
             showModal('خطا', 'لطفاً فیلدهای کد پستی و آدرس را به طور کامل پر کنید.', false);
             return;
         }
-        // --- پایان اعتبارسنجی ---
 
         const saveBtn = document.getElementById('saveBtn');
         saveBtn.disabled = true;
         saveBtn.textContent = 'در حال ذخیره‌سازی...';
         try {
-            const response = await fetch(`${API_BACKEND_URL}/update-user-profile`, {
+            const response = await fetch(`${API_BACKEND_URL}/api/update-profile`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

@@ -79,7 +79,7 @@
         document.getElementById('buy_shares_link').href = `view_offers.html?nid=${currentNationalId}`;
 
         fetchMemberData();
-        fetchMyOffers(); // فراخوانی تابع جدید
+        fetchMyOffers();
     };
 
     async function fetchMemberData() {
@@ -87,7 +87,7 @@
         const contentEl = document.getElementById('share_status_content');
         
         try {
-            const response = await fetch(`${API_BACKEND_URL}/get-member-data?nid=${currentNationalId}`);
+            const response = await fetch(`${API_BACKEND_URL}/api/member-data?nid=${currentNationalId}`);
             const data = await response.json();
 
             if (response.ok) {
@@ -103,7 +103,6 @@
         }
     }
 
-    // تابع جدید برای دریافت پیشنهادهای فروش کاربر
     async function fetchMyOffers() {
         const loadingEl = document.getElementById('my_offers_loading');
         const containerEl = document.getElementById('my_offers_container');
@@ -143,7 +142,6 @@
         } catch (error) {
             loadingEl.classList.add('hidden');
             noOffersEl.querySelector('p').textContent = 'خطا در ارتباط با سرور.';
-            noOffersEl.classList.remove('hidden');
         }
     }
 </script>
