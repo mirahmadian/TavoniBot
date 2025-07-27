@@ -62,27 +62,26 @@ def health_check():
     return '', 204
 
 # --- API Endpoints ---
-@app.route('/api/member-data')
-def get_member_data():
+@app.route('/api/admin-data')
+def get_admin_data():
     try:
-        national_id = request.args.get('nid')
-        if not national_id: return jsonify({"error": "کد ملی ارسال نشده است."}), 400
-        member_res = supabase.table('member').select("first_name, last_name, nationalcode, phonenumber, address, postal_code, share_percentage").eq('nationalcode', national_id).execute()
-        if not member_res.data:
-            print(f"No member found for national_id: {national_id}")
-            return jsonify({"error": "کاربری با این کد ملی یافت نشد."}), 404
-        member_data = member_res.data[0]
-        if 'share_percentage' not in member_data:
-            member_data['share_percentage'] = 100
-        offers_res = supabase.table('sale_offers').select('percentage_to_sell').eq('seller_national_id', national_id).eq('status', 'active').execute()
-        listed_percentage = sum(offer['percentage_to_sell'] for offer in offers_res.data) if offers_res.data else 0
-        member_data['available_share_percentage'] = max(0, member_data.get('share_percentage', 100) - listed_percentage)
-        print(f"Member data retrieved: {member_data}")
-        return jsonify(member_data)
+        offers = supabase.table('sale_offers').select('*, member:seller_national_id (first_name, last_name)').execute()
+        requests = supabase.table('purchase_requests').select('*').execute()  # فقط درخواست‌ها رو بگیر
+        for req in requests.data:
+            buyer = supabase.table('member').select('first_name, last_name, phonenumber').eq('nationalcode', req['buyer_national_id']).execute()
+            if buyer.data:
+                req['member:buyer_national_id'] = buyer.data[0]
+        print("Admin data requests raw:", requests.data)
+        for req in requests.data:
+            buyer_data = req.get('member:buyer_national_id', {})
+            print(f"Request ID: {req.get('id')}, Buyer data: {buyer_data}, Buyer NID: {req.get('buyer_national_id')}")
+            if not buyer_data:
+                print(f"Warning: No buyer data for request ID: {req.get('id')}, buyer_national_id: {req.get('buyer_national_id')}, possible duplicate phonenumber or chat_id conflict")
+        return jsonify({"offers": offers.data, "requests": requests.data})
     except Exception as e:
-        print(f"Member Data Error: {e}")
-        return jsonify({"error": f"خطا در دریافت اطلاعات کاربر: {str(e)}"}), 500
-
+        print(f"Admin Data Error: {e}")
+        return jsonify({"error": "خطا در دریافت داده‌ها."}), 500
+    
 @app.route('/api/start-login', methods=['POST'])
 def start_login():
     try:
