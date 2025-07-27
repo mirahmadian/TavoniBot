@@ -56,8 +56,9 @@
                 requestsList.innerHTML = '';
                 if (data.requests && data.requests.length > 0) {
                     const userRequests = data.requests.filter(req => {
-                        const isMatch = req.sale_offers && req.sale_offers.seller_national_id === nationalId && req.status === 'pending';
-                        console.log(`Filtering req: offer_id=${req.offer_id}, seller_nid=${req.sale_offers?.seller_national_id}, status=${req.status}, match=${isMatch}`);
+                        const sellerNid = req.sale_offers?.seller_national_id;
+                        const isMatch = sellerNid === nationalId && req.status === 'pending';
+                        console.log(`Filtering req: offer_id=${req.offer_id}, seller_nid=${sellerNid}, status=${req.status}, match=${isMatch}`);
                         return isMatch;
                     });
                     console.log('Filtered requests:', userRequests);
@@ -65,7 +66,8 @@
                         userRequests.forEach(req => {
                             const buyer = req['member:buyer_national_id'] || {};
                             const offer = req.sale_offers || {};
-                            console.log(`Buyer data for offer_id ${req.offer_id}:`, buyer);
+                            console.log(`Raw buyer data for offer_id ${req.offer_id}:`, req['member:buyer_national_id']);
+                            console.log(`Processed buyer data for offer_id ${req.offer_id}:`, buyer);
                             const buyerName = (buyer.first_name || '') + ' ' + (buyer.last_name || '');
                             const buyerPhone = buyer.phonenumber || 'موجود نیست';
                             const div = document.createElement('div');
