@@ -1,173 +1,44 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ورود به سامانه تعاونی</title>
-    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.20/dist/full.min.css" rel="stylesheet" />
-    <link href="https://cdn.jsdelivr.net/npm/@fontsource/vazirmatn@latest/index.css" rel="stylesheet" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body { font-family: Vazirmatn, sans-serif; background: linear-gradient(to right, #a8e6cf, #dcedc1); }
-        .honeypot-field {
-            opacity: 0;
-            position: absolute;
-            top: 0;
-            left: 0;
-            height: 0;
-            width: 0;
-            z-index: -1;
-        }
-    </style>
-</head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>ورود به سامانه</title><link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.20/dist/full.min.css" rel="stylesheet" /><link href="https://cdn.jsdelivr.net/npm/@fontsource/vazirmatn@latest/index.css" rel="stylesheet" /><script src="https://cdn.tailwindcss.com"></script><style>body{font-family:Vazirmatn,sans-serif;background-color:#f0f2f5;}</style></head>
 <body class="flex items-center justify-center min-h-screen">
-    <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
-        <h1 class="text-2xl font-bold text-center mb-6">ورود به سامانه تعاونی</h1>
-        <div id="step-1">
-            <label class="block mb-2 font-semibold">کد ملی خود را وارد کنید:</label>
-            <input type="text" id="nationalIdInput" class="input input-bordered w-full mb-4" placeholder="مثال: 0012345678" maxlength="10">
-            
-            <div class="honeypot-field">
-                <label for="website">Website</label>
-                <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
-            </div>
-
-            <button id="sendCodeBtn" onclick="startLoginProcess()" class="btn btn-success w-full">ادامه</button>
-            <p id="msg" class="text-sm text-red-500 mt-2 text-center"></p>
-        </div>
-        <div id="step-2" class="hidden"></div>
+    <div class="bg-white p-6 rounded-lg shadow-md w-full max-w-md">
+        <h1 class="text-2xl font-bold text-center mb-4">ورود به سامانه تعاونی</h1>
+        <input type="text" id="national_id" placeholder="کد ملی" class="input input-bordered w-full mb-4 text-right" dir="ltr">
+        <button onclick="startLogin()" class="btn btn-primary w-full">دریافت کد تأیید</button>
     </div>
     <dialog id="message_modal" class="modal">
-        <div class="modal-box text-center">
-            <h3 id="modal_title" class="font-bold text-lg"></h3>
-            <p id="modal_message" class="py-4"></p>
-            <div class="modal-action justify-center">
-                <form method="dialog"><button id="modal_button" class="btn">بستن</button></form>
-            </div>
-        </div>
+        <div class="modal-box text-center"><h3 id="modal_title" class="font-bold text-lg"></h3><p id="modal_message" class="py-4"></p><div class="modal-action justify-center"><form method="dialog"><button id="modal_button" class="btn">بستن</button></form></div></div>
+    </dialog>
+    <dialog id="otp_modal" class="modal">
+        <div class="modal-box text-center"><h3 class="font-bold text-lg">ورود با کد تأیید</h3><input type="text" id="otp_code" placeholder="کد تأیید" class="input input-bordered w-full mb-4 text-center" dir="ltr"><button onclick="verifyOtp()" class="btn btn-primary w-full">تأیید</button><div class="modal-action"><form method="dialog"><button class="btn btn-ghost">انصراف</button></form></div></div>
     </dialog>
     <script>
         const API_BACKEND_URL = "https://tavonibot.onrender.com";
-        const BALE_BOT_USERNAME = "TavoniBot";
-        let currentNationalId = "";
-        let otpTimer;
         function showModal(title, message, isSuccess) {
-            const modal = document.getElementById('message_modal');
-            document.getElementById('modal_title').textContent = title;
-            document.getElementById('modal_message').textContent = message;
-            const modalButton = document.getElementById('modal_button');
-            modalButton.className = 'btn';
-            if (isSuccess) { modalButton.classList.add('btn-success'); } else { modalButton.classList.add('btn-error'); }
-            modal.showModal();
+            const modal = document.getElementById('message_modal'); document.getElementById('modal_title').textContent = title; document.getElementById('modal_message').textContent = message; const btn = document.getElementById('modal_button'); btn.className = 'btn'; if (isSuccess) btn.classList.add('btn-success'); else btn.classList.add('btn-error'); modal.showModal();
         }
-        async function startLoginProcess() {
-            const nationalId = document.getElementById('nationalIdInput').value.trim();
-            const msgEl = document.getElementById('msg');
-            const sendBtn = document.getElementById('sendCodeBtn');
-            const honeypot = document.getElementById('website').value;
-            msgEl.textContent = '';
-            currentNationalId = nationalId;
-            if (!/^\d{10}$/.test(nationalId)) {
-                msgEl.textContent = "کد ملی باید ۱۰ رقم باشد.";
-                return;
-            }
-            sendBtn.disabled = true;
-            sendBtn.textContent = 'در حال بررسی...';
+        async function startLogin() {
+            const national_id = document.getElementById('national_id').value;
+            if (!national_id) return showModal('خطا', 'کد ملی را وارد کنید.', false);
             try {
-                const response = await fetch(`${API_BACKEND_URL}/api/start-login`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ national_id: nationalId, honeypot: honeypot })
-                });
+                const response = await fetch(`${API_BACKEND_URL}/api/start-login`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({national_id})});
                 const result = await response.json();
-                if (response.ok) {
-                    setupStep2(result);
-                } else {
-                    msgEl.textContent = result.error || 'یک خطای ناشناخته رخ داد.';
-                }
-            } catch (error) {
-                showModal('خطا', 'خطا در برقراری ارتباط با سرور.', false);
-            } finally {
-                sendBtn.disabled = false;
-                sendBtn.textContent = 'ادامه';
-            }
-        }
-        function setupStep2(data) {
-            const step2Div = document.getElementById('step-2');
-            let content = '';
-            const otpSectionHTML = `
-                <label class="block mb-2 font-semibold text-gray-800">کد تایید دریافت شده را وارد کنید:</label>
-                <input type="text" id="otpInput" class="input input-bordered w-full mb-2 text-center font-bold text-lg tracking-[.25em]" maxlength="5" placeholder="- - - - -">
-                <div class="text-center text-sm text-gray-500 mb-4">
-                    <span id="timer_message">زمان باقی‌مانده:</span> <span id="timer" class="font-bold">02:00</span>
-                </div>
-                <button id="verifyBtn" onclick="verifyOtp()" class="btn btn-primary w-full">تایید و ورود</button>
-            `;
-            if (data.action === 'verify_otp') {
-                content = `<p class="text-center mb-4 text-gray-800">شما قبلاً ثبت‌نام کرده‌اید. کد تایید به حساب بله شما ارسال شد.</p>${otpSectionHTML}`;
-            } else if (data.action === 'register') {
-                const linkingToken = data.linking_token;
-                const baleLink = `https://ble.ir/${BALE_BOT_USERNAME}?start=${linkingToken}`;
-                content = `<div class="text-center mb-4 leading-loose text-gray-800"><p>برای ثبت‌نام اولیه، <a href="${baleLink}" target="_blank" class="link link-primary font-bold">اینجا</a> را کلیک کرده و شماره موبایل خود را در بله به اشتراک بگذارید.</p><p class="text-sm mt-1">پس از آن، کد تایید برای شما ارسال می‌شود.</p></div>${otpSectionHTML}`;
-            }
-            step2Div.innerHTML = content;
-            document.getElementById('step-1').classList.add('hidden');
-            step2Div.classList.remove('hidden');
-            startOtpTimer();
-        }
-        function startOtpTimer() {
-            let duration = 120;
-            const timerDisplay = document.getElementById('timer');
-            const timerMessage = document.getElementById('timer_message');
-            const verifyBtn = document.getElementById('verifyBtn');
-            const otpInput = document.getElementById('otpInput');
-            if (otpTimer) clearInterval(otpTimer);
-            otpTimer = setInterval(() => {
-                const minutes = Math.floor(duration / 60);
-                let seconds = duration % 60;
-                seconds = seconds < 10 ? "0" + seconds : seconds;
-                timerDisplay.textContent = `${minutes}:${seconds}`;
-                duration--;
-                if (duration < 0) {
-                    clearInterval(otpTimer);
-                    timerMessage.textContent = "کد منقضی شد! لطفاً صفحه را رفرش کرده و دوباره تلاش کنید.";
-                    timerDisplay.textContent = "";
-                    verifyBtn.disabled = true;
-                    otpInput.disabled = true;
-                }
-            }, 1000);
+                if (response.ok) document.getElementById('otp_modal').showModal(); else showModal('خطا', result.error, false);
+            } catch (e) {showModal('خطا', 'ارتباط با سرور برقرار نشد.', false);}
         }
         async function verifyOtp() {
-            const otpCode = document.getElementById('otpInput').value.trim();
-            const verifyBtn = document.getElementById('verifyBtn');
-            if (!/^\d{5}$/.test(otpCode)) {
-                showModal('خطا', 'کد تایید باید ۵ رقم باشد.', false); return;
-            }
-            verifyBtn.disabled = true;
-            verifyBtn.textContent = 'در حال بررسی...';
+            const national_id = document.getElementById('national_id').value;
+            const otp_code = document.getElementById('otp_code').value;
             try {
-                const response = await fetch(`${API_BACKEND_URL}/api/verify-otp`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ national_id: currentNationalId, otp_code: otpCode })
-                });
+                const response = await fetch(`${API_BACKEND_URL}/api/verify-otp`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({national_id, otp_code})});
                 const result = await response.json();
                 if (response.ok) {
-                    clearInterval(otpTimer);
-                    if (result.action === 'go_to_dashboard') {
-                        window.location.href = `dashboard.html?nid=${currentNationalId}`;
-                    } else {
-                        window.location.href = `profile.html?nid=${currentNationalId}`;
-                    }
-                } else {
-                    showModal('خطا', result.error || "خطای نامشخص.", false);
-                }
-            } catch(error) {
-                showModal('خطا', 'خطا در ارتباط با سرور.', false);
-            } finally {
-                verifyBtn.disabled = false;
-                verifyBtn.textContent = 'تایید و ورود';
-            }
+                    if (result.action === 'go_to_profile') window.location.href = `profile.html?nid=${national_id}`;
+                    else if (result.action === 'go_to_dashboard') window.location.href = `dashboard.html?nid=${national_id}`;
+                } else showModal('خطا', result.error, false);
+                document.getElementById('otp_modal').close();
+            } catch (e) {showModal('خطا', 'ارتباط با سرور برقرار نشد.', false);}
         }
     </script>
 </body>

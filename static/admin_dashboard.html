@@ -1,0 +1,78 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>داشبورد هیئت مدیره</title><link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.20/dist/full.min.css" rel="stylesheet" /><link href="https://cdn.jsdelivr.net/npm/@fontsource/vazirmatn@latest/index.css" rel="stylesheet" /><script src="https://cdn.tailwindcss.com"></script><style>body{font-family:Vazirmatn,sans-serif;background-color:#f0f2f5;}</style></head>
+<body class="p-4 md:p-8">
+    <div class="max-w-4xl mx-auto bg-white p-8 rounded-2xl shadow-md">
+        <h1 class="text-2xl font-bold mb-6">داشبورد هیئت مدیره</h1>
+        <h2 class="text-xl font-semibold mb-4">پیشنهادات فروش</h2>
+        <div id="offers_list" class="space-y-4 mb-6"></div>
+        <h2 class="text-xl font-semibold mb-4">درخواست‌های خرید</h2>
+        <div id="requests_list" class="space-y-4"></div>
+    </div>
+    <script>
+        const API_BACKEND_URL = "https://tavonibot.onrender.com";
+        async function loadData() {
+            try {
+                const response = await fetch(`${API_BACKEND_URL}/api/admin-data`);
+                const data = await response.json();
+                if (response.ok) {
+                    const offersList = document.getElementById('offers_list');
+                    data.offers.forEach(offer => {
+                        const div = document.createElement('div');
+                        div.className = 'border p-4 rounded-lg';
+                        div.innerHTML = `<p>فروشنده: ${offer['member']['first_name']} ${offer['member']['last_name']}</p><p>درصد: ${offer.percentage_to_sell}%</p><p>قیمت: ${offer.price.toLocaleString('fa-IR')} تومان</p><p>وضعیت: ${offer.status}</p>`;
+                        offersList.appendChild(div);
+                    });
+                    const requestsList = document.getElementById('requests_list');
+                    data.requests.forEach(req => {
+                        const div = document.createElement('div');
+                        div.className = 'border p-4 rounded-lg';
+                        div.innerHTML = `<p>خریدار: ${req['member']['first_name']} ${req['member']['last_name']}</p><p>فروشنده: ${req['sale_offers']['seller_national_id']}</p><p>درصد: ${req['sale_offers']['percentage_to_sell']}%</p><p>وضعیت: ${req.status}</p>`;
+                        requestsList.appendChild(div);
+                    });
+                }
+            } catch (e) {console.error('خطا در بارگذاری داده‌ها:', e);}
+        }
+        window.onload = loadData;
+    </script>
+</body>
+</html>

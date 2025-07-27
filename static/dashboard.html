@@ -1,137 +1,40 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>داشبورد</title>
-    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.20/dist/full.min.css" rel="stylesheet" />
-    <link href="https://cdn.jsdelivr.net/npm/@fontsource/vazirmatn@latest/index.css" rel="stylesheet" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body { font-family: Vazirmatn, sans-serif; background: linear-gradient(to right, #a8e6cf, #dcedc1); }
-    </style>
-</head>
-<body class="flex items-center justify-center min-h-screen">
-    <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
-        <h1 class="text-2xl font-bold text-center mb-6" id="welcomeMessage">خوش آمدید</h1>
-        <div id="user-info">
-            <p class="text-center">در حال بارگذاری اطلاعات...</p>
-        </div>
-        <div id="offers-list" class="mt-6">
-            <p class="text-center">در حال بارگذاری پیشنهادات...</p>
-        </div>
-        <p id="msg" class="text-sm text-red-500 mt-2 text-center"></p>
-        <div class="flex justify-between mt-4">
-            <button id="sellIntentBtn" class="btn btn-success w-5/12 mr-1">قصد فروش دارم</button>
-            <button id="buyIntentBtn" class="btn btn-primary w-5/12 ml-1">قصد خرید دارم</button>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>داشبورد</title><link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.20/dist/full.min.css" rel="stylesheet" /><link href="https://cdn.jsdelivr.net/npm/@fontsource/vazirmatn@latest/index.css" rel="stylesheet" /><script src="https://cdn.tailwindcss.com"></script><style>body{font-family:Vazirmatn,sans-serif;background-color:#f0f2f5;}</style></head>
+<body class="p-4 md:p-8">
+    <div class="max-w-2xl mx-auto bg-white p-8 rounded-2xl shadow-md">
+        <h1 class="text-2xl font-bold mb-6" id="welcome">خوش آمدید</h1>
+        <p>میزان سهام قابل فروش: <span id="available_share" class="font-bold"></span>%</p>
+        <div class="mt-6 space-x-2">
+            <a href="sell_share.html?nid=" id="sell_link" class="btn btn-error">قصد فروش دارم</a>
+            <a href="view_offers.html?nid=" id="view_offers_link" class="btn btn-primary">مشاهده پیشنهادات</a>
         </div>
     </div>
-    <dialog id="message_modal" class="modal">
-        <div class="modal-box text-center">
-            <h3 id="modal_title" class="font-bold text-lg"></h3>
-            <p id="modal_message" class="py-4"></p>
-            <div class="modal-action justify-center">
-                <form method="dialog"><button id="modal_button" class="btn">بستن</button></form>
-            </div>
-        </div>
-    </dialog>
     <script>
         const API_BACKEND_URL = "https://tavonibot.onrender.com";
         const urlParams = new URLSearchParams(window.location.search);
         const nationalId = urlParams.get('nid');
+        document.getElementById('sell_link').href += nationalId;
+        document.getElementById('view_offers_link').href += nationalId;
 
-        function showModal(title, message, isSuccess) {
-            const modal = document.getElementById('message_modal');
-            document.getElementById('modal_title').textContent = title;
-            document.getElementById('modal_message').textContent = message;
-            const modalButton = document.getElementById('modal_button');
-            modalButton.className = 'btn';
-            if (isSuccess) { modalButton.classList.add('btn-success'); } else { modalButton.classList.add('btn-error'); }
-            modal.showModal();
-        }
-
-        async function loadUserData() {
-            const welcomeMessage = document.getElementById('welcomeMessage');
-            const userInfo = document.getElementById('user-info');
-            const msgEl = document.getElementById('msg');
-            if (!nationalId) {
-                msgEl.textContent = 'شناسه کاربر نامشخص است.';
-                return;
-            }
+        async function loadData() {
             try {
-                const response = await fetch(`${API_BACKEND_URL}/api/member-data?nid=${nationalId}`, {
-                    method: 'GET',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    welcomeMessage.textContent = `خوش آمدید، ${data.first_name} ${data.last_name}`;
-                    userInfo.innerHTML = `
-                        <p class="text-center mt-4">میزان سهام فعلی: ${data.available_share_percentage || 0}%</p>
-                    `;
-                } else {
-                    const errorData = await response.json();
-                    msgEl.textContent = errorData.error || 'خطا در بارگذاری اطلاعات کاربر.';
+                const memberResponse = await fetch(`${API_BACKEND_URL}/api/member-data?nid=${nationalId}`);
+                const memberData = await memberResponse.json();
+                if (memberResponse.ok) {
+                    const firstName = memberData.first_name || '';
+                    const lastName = memberData.last_name || '';
+                    document.getElementById('welcome').textContent = `سهامدار گرامی ${firstName} ${lastName} خوش آمدید`;
                 }
-            } catch (error) {
-                showModal('خطا', 'خطا در ارتباط با سرور.', false);
-            }
+
+                const dashboardResponse = await fetch(`${API_BACKEND_URL}/api/dashboard-data?nid=${nationalId}`);
+                const dashboardData = await dashboardResponse.json();
+                if (dashboardResponse.ok) {
+                    document.getElementById('available_share').textContent = dashboardData.available_share;
+                } else console.error(dashboardData.error);
+            } catch (e) {console.error('خطا در بارگذاری داده‌ها:', e);}
         }
-
-        async function loadOffers() {
-            const offersList = document.getElementById('offers-list');
-            const msgEl = document.getElementById('msg');
-            if (!nationalId) {
-                msgEl.textContent = 'شناسه کاربر نامشخص است.';
-                return;
-            }
-            try {
-                const response = await fetch(`${API_BACKEND_URL}/api/my-offers?nid=${nationalId}`, {
-                    method: 'GET',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    offersList.innerHTML = `
-                        <h3 class="font-bold text-center mb-2">پیشنهادات شما:</h3>
-                        ${data.offers && data.offers.length > 0 ? 
-                            data.offers.map(offer => `
-                                <div class="border p-2 my-2">
-                                    <p>شناسه: ${offer.id}</p>
-                                    <p>درصد سهام: ${offer.percentage_to_sell}%</p>
-                                    <p>قیمت: ${offer.price}</p>
-                                    <a href="/manage_offer.html?id=${offer.id}&nid=${nationalId}" class="btn btn-sm btn-primary mt-1">مدیریت</a>
-                                </div>
-                            `).join('') : '<p>هیچ پیشنهادی ثبت نشده است.</p>'}
-                    `;
-                } else {
-                    const errorData = await response.json();
-                    msgEl.textContent = errorData.error || 'خطا در بارگذاری پیشنهادات.';
-                }
-            } catch (error) {
-                showModal('خطا', 'خطا در ارتباط با سرور.', false);
-            }
-        }
-
-        document.getElementById('sellIntentBtn').addEventListener('click', () => {
-            if (!nationalId) {
-                document.getElementById('msg').textContent = 'شناسه کاربر نامشخص است.';
-                return;
-            }
-            window.location.href = `/sell_share.html?nid=${nationalId}`;
-        });
-
-        document.getElementById('buyIntentBtn').addEventListener('click', () => {
-            if (!nationalId) {
-                document.getElementById('msg').textContent = 'شناسه کاربر نامشخص است.';
-                return;
-            }
-            window.location.href = `/buy_share.html?nid=${nationalId}`;
-        });
-
-        // بارگذاری اطلاعات هنگام لود صفحه
-        loadUserData();
-        loadOffers();
+        window.onload = loadData;
     </script>
 </body>
 </html>

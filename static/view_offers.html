@@ -3,103 +3,86 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>لیست پیشنهادات فروش سهام</title>
+    <title>پیشنهادات فروش</title>
     <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.20/dist/full.min.css" rel="stylesheet" />
     <link href="https://cdn.jsdelivr.net/npm/@fontsource/vazirmatn@latest/index.css" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <style>
-        body { font-family: Vazirmatn, sans-serif; background: linear-gradient(to right, #a8e6cf, #dcedc1); }
+        body {
+            font-family: Vazirmatn, sans-serif;
+            background-color: #f0f2f5;
+        }
+        .active-icon {
+            color: #2563eb;
+            border-bottom: 2px solid #2563eb;
+        }
     </style>
 </head>
-<body class="flex items-center justify-center min-h-screen">
-    <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
+<body class="p-4 md:p-8">
+    <div class="max-w-2xl mx-auto bg-white p-8 rounded-2xl shadow-md">
         <div class="flex justify-between items-center mb-6">
-            <h1 class="text-2xl font-bold">لیست پیشنهادات فروش سهام</h1>
-            <a id="dashboard_link" href="#" class="btn btn-sm btn-ghost">بازگشت به داشبورد</a>
-        </div>
-        
-        <div class="form-control w-full mb-4">
-            <label class="label"><span class="label-text">نحوه نمایش:</span></label>
-            <select id="sort_by" class="select select-bordered">
-                <option value="price_asc">ارزان‌ترین</option>
-                <option value="price_desc">گران‌ترین</option>
-            </select>
-        </div>
-
-        <div id="offers-list" class="mt-4">
-            <p class="text-center">در حال بارگذاری لیست...</p>
-        </div>
-        <p id="no-offers" class="text-center mt-4 hidden">در حال حاضر هیچ پیشنهاد فعالی برای فروش وجود ندارد.</p>
-    </div>
-    <dialog id="message_modal" class="modal">
-        <div class="modal-box text-center">
-            <h3 id="modal_title" class="font-bold text-lg"></h3>
-            <p id="modal_message" class="py-4"></p>
-            <div class="modal-action justify-center">
-                <form method="dialog"><button id="modal_button" class="btn">بستن</button></form>
+            <h1 class="text-2xl font-bold">پیشنهادات فروش</h1>
+            <div class="space-x-2">
+                <button id="grid_icon" class="btn btn-sm btn-ghost" onclick="changeDisplayMode('grid')">
+                    <i class="fas fa-th-large"></i>
+                </button>
+                <button id="list_icon" class="btn btn-sm btn-ghost" onclick="changeDisplayMode('list')">
+                    <i class="fas fa-list"></i>
+                </button>
             </div>
         </div>
-    </dialog>
+        <div id="offers_container" class="space-y-4"></div>
+        <a href="dashboard.html?nid=" id="back_link" class="btn btn-ghost mt-4 w-full">بازگشت</a>
+    </div>
     <script>
         const API_BACKEND_URL = "https://tavonibot.onrender.com";
         const urlParams = new URLSearchParams(window.location.search);
         const nationalId = urlParams.get('nid');
+        document.getElementById('back_link').href += nationalId;
 
-        function showModal(title, message, isSuccess) {
-            const modal = document.getElementById('message_modal');
-            document.getElementById('modal_title').textContent = title;
-            document.getElementById('modal_message').textContent = message;
-            const modalButton = document.getElementById('modal_button');
-            modalButton.className = 'btn';
-            if (isSuccess) { modalButton.classList.add('btn-success'); } else { modalButton.classList.add('btn-error'); }
-            modal.showModal();
+        let displayMode = 'grid';
+
+        function changeDisplayMode(mode) {
+            displayMode = mode;
+            document.getElementById('grid_icon').classList.toggle('active-icon', mode === 'grid');
+            document.getElementById('list_icon').classList.toggle('active-icon', mode === 'list');
+            loadOffers();
+        }
+
+        function createOfferElement(offer) {
+            const normalized_price = (offer.price / offer.percentage_to_sell) * 100 || 0;
+            const isUnusual = offer.is_unusual;
+            const div = document.createElement('div');
+            if (displayMode === 'grid') {
+                div.className = `card bg-base-100 shadow-md p-4 rounded-lg ${isUnusual ? 'border-red-500 bg-red-100' : ''}`;
+                div.innerHTML = `<div class="card-body"><h3 class="card-title">فروشنده: ${offer['member']['first_name']} ${offer['member']['last_name']}</h3><p>درصد: ${offer.percentage_to_sell}%</p><p>قیمت: ${offer.price.toLocaleString('fa-IR')} تومان</p>${isUnusual ? '<p class="text-red-600">هشدار: قیمت خارج از نرخ متعارف است!</p>' : ''}<a href="offer_detail.html?offer_id=${offer.id}&nid=${nationalId}" class="btn btn-sm btn-primary mt-2">جزئیات</a></div>`;
+            } else {
+                div.className = `flex items-center space-x-4 p-4 border rounded-lg ${isUnusual ? 'bg-red-100 border-red-500' : 'bg-white'}`;
+                div.innerHTML = `<div><p>فروشنده: ${offer['member']['first_name']} ${offer['member']['last_name']}</p><p>درصد: ${offer.percentage_to_sell}%</p><p>قیمت: ${offer.price.toLocaleString('fa-IR')} تومان</p>${isUnusual ? '<p class="text-red-600">هشدار: قیمت خارج از نرخ متعارف است!</p>' : ''}</div><a href="offer_detail.html?offer_id=${offer.id}&nid=${nationalId}" class="btn btn-sm btn-primary ml-4">جزئیات</a>`;
+            }
+            return div;
         }
 
         async function loadOffers() {
-            const offersList = document.getElementById('offers-list');
-            const noOffers = document.getElementById('no-offers');
-            const sortBy = document.getElementById('sort_by').value;
-            if (!nationalId) {
-                offersList.innerHTML = '<p class="text-center">شناسه کاربر نامشخص است.</p>';
-                return;
-            }
+            const container = document.getElementById('offers_container');
+            container.innerHTML = '';
             try {
-                const response = await fetch(`${API_BACKEND_URL}/api/all-offers?sort=${sortBy}&nid=${nationalId}`, {
-                    method: 'GET',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.offers && data.offers.length > 0) {
-                        offersList.innerHTML = data.offers.map(offer => `
-                            <div class="border p-2 my-2">
-                                <p>شناسه: ${offer.id}</p>
-                                <p>فروشنده: ${offer.seller_name || 'نامشخص'}</p>
-                                <p>درصد سهام: ${offer.percentage_to_sell}%</p>
-                                <p>قیمت: ${offer.price.toLocaleString('fa-IR')} تومان</p>
-                                <a href="/offer_detail.html?id=${offer.id}&nid=${nationalId}" class="btn btn-sm btn-primary mt-1">مشاهده جزئیات</a>
-                            </div>
-                        `).join('');
-                        noOffers.classList.add('hidden');
-                    } else {
-                        noOffers.classList.remove('hidden');
-                        offersList.innerHTML = '';
-                    }
-                } else {
-                    const errorData = await response.json();
-                    offersList.innerHTML = `<p class="text-center">${errorData.error || 'خطا در بارگذاری پیشنهادات.'}</p>`;
-                }
-            } catch (error) {
-                showModal('خطا', 'خطا در ارتباط با سرور.', false);
-            }
+                const response = await fetch(`${API_BACKEND_URL}/api/sale-offers`);
+                const offers = await response.json();
+                if (response.ok && offers.length > 0) {
+                    offers.forEach(offer => {
+                        const offerElement = createOfferElement(offer);
+                        container.appendChild(offerElement);
+                    });
+                    if (displayMode === 'grid') container.className = 'grid grid-cols-1 md:grid-cols-2 gap-4';
+                    else container.className = 'space-y-4';
+                } else container.innerHTML = '<p>هیچ پیشنهادی موجود نیست.</p>';
+            } catch (e) {container.innerHTML = '<p>خطا در بارگذاری پیشنهادات.</p>';}
         }
 
-        document.getElementById('sort_by').addEventListener('change', loadOffers);
-
-        // بارگذاری اطلاعات هنگام لود صفحه
-        window.onload = function() {
-            document.getElementById('dashboard_link').href = `dashboard.html?nid=${nationalId}`;
-            loadOffers();
+        window.onload = () => {
+            changeDisplayMode('grid'); // حالت پیش‌فرض
         };
     </script>
 </body>
