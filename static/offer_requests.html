@@ -50,20 +50,23 @@
             try {
                 const response = await fetch(`${API_BACKEND_URL}/api/admin-data`);
                 const data = await response.json();
-                if (response.ok) {
-                    const requests = data.requests.filter(req => req.sale_offers && req.sale_offers.seller_national_id === nationalId && req.status === 'pending');
-                    const requestsList = document.getElementById('requests_list');
-                    requestsList.innerHTML = '';
-                    if (requests.length > 0) {
-                        requests.forEach(req => {
+                if (!response.ok) throw new Error('خطا در دریافت داده‌ها از سرور');
+                const requestsList = document.getElementById('requests_list');
+                requestsList.innerHTML = '';
+                if (data.requests && data.requests.length > 0) {
+                    const userRequests = data.requests.filter(req => {
+                        return req.sale_offers && req.sale_offers.seller_national_id === nationalId && req.status === 'pending';
+                    });
+                    if (userRequests.length > 0) {
+                        userRequests.forEach(req => {
                             const buyer = req['member:buyer_national_id'];
                             const div = document.createElement('div');
                             div.className = 'card bg-base-100 shadow-md p-4 rounded-lg';
                             div.innerHTML = `
-                                <p>خریدار: ${buyer.first_name} ${buyer.last_name}</p>
-                                <p>شماره تماس: ${buyer.phonenumber || 'موجود نیست'}</p>
-                                <p>درصد سهم: ${req.sale_offers.percentage_to_sell}%</p>
-                                <p>قیمت: ${req.sale_offers.price.toLocaleString('fa-IR')} تومان</p>
+                                <p>خریدار: ${buyer?.first_name || ''} ${buyer?.last_name || ''}</p>
+                                <p>شماره تماس: ${buyer?.phonenumber || 'موجود نیست'}</p>
+                                <p>درصد سهم: ${req.sale_offers?.percentage_to_sell || 0}%</p>
+                                <p>قیمت: ${req.sale_offers?.price?.toLocaleString('fa-IR') || '0'} تومان</p>
                                 <div class="flex gap-2 mt-2">
                                     <button onclick="approveRequest(${req.id})" class="btn btn-success btn-sm">تأیید</button>
                                     <button onclick="rejectRequest(${req.id})" class="btn btn-error btn-sm">رد</button>
@@ -74,10 +77,12 @@
                     } else {
                         requestsList.innerHTML = '<p>درخواستی برای شما وجود ندارد.</p>';
                     }
+                } else {
+                    requestsList.innerHTML = '<p>هیچ درخواستی ثبت نشده است.</p>';
                 }
             } catch (e) {
                 console.error('خطا در بارگذاری درخواست‌ها:', e);
-                document.getElementById('requests_list').innerHTML = '<p>خطا در بارگذاری درخواست‌ها.</p>';
+                document.getElementById('requests_list').innerHTML = '<p>خطا در بارگذاری درخواست‌ها. لطفاً دوباره تلاش کنید.</p>';
             }
         }
 
@@ -89,7 +94,7 @@
                     body: JSON.stringify({seller_nid: nationalId})
                 }).then(res => res.json()).then(result => {
                     if (res.ok) loadRequests();
-                    else showConfirm('خطا', result.error, () => {});
+                    else showConfirm('خطا', result.error || 'خطایی رخ داده است.', () => {});
                 }).catch(() => showConfirm('خطا', 'ارتباط با سرور برقرار نشد.', () => {}));
             });
         }
@@ -102,7 +107,7 @@
                     body: JSON.stringify({seller_nid: nationalId})
                 }).then(res => res.json()).then(result => {
                     if (res.ok) loadRequests();
-                    else showConfirm('خطا', result.error, () => {});
+                    else showConfirm('خطا', result.error || 'خطایی رخ داده است.', () => {});
                 }).catch(() => showConfirm('خطا', 'ارتباط با سرور برقرار نشد.', () => {}));
             });
         }
