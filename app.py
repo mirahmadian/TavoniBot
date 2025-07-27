@@ -54,6 +54,8 @@ def serve_view_offers(): return send_from_directory(app.static_folder, 'view_off
 def serve_offer_detail(): return send_from_directory(app.static_folder, 'offer_detail.html')
 @app.route('/admin_dashboard.html')
 def serve_admin_dashboard(): return send_from_directory(app.static_folder, 'admin_dashboard.html')
+@app.route('/offer_requests.html')
+def serve_offer_requests(): return send_from_directory(app.static_folder, 'offer_requests.html')
 @app.route('/health-check')
 def health_check(): 
     print("Health check requested")
@@ -205,12 +207,13 @@ def offer_detail(offer_id):
         offer_data = offer.data[0]
         if offer_data['seller_national_id'] == buyer_nid:
             return jsonify({"error": "نمی‌توانید پیشنهاد خود را بخرید."}), 400
-        supabase.table('sale_offers').update({'status': 'pending'}).eq('id', offer_id).execute()
-        seller = supabase.table('member').select('chat_id, first_name, last_name').eq('nationalcode', offer_data['seller_national_id']).execute()
+        buyer = supabase.table('member').select('phonenumber, first_name, last_name').eq('nationalcode', buyer_nid).execute()
+        if not buyer.data: return jsonify({"error": "اطلاعات خریدار یافت نشد."}), 404
+        buyer_phone = buyer.data[0]['phonenumber'] or 'شماره موجود نیست'
+        message = f"کاربر {buyer.data[0]['first_name']} {buyer.data[0]['last_name']} (شماره: {buyer_phone}) تمایل به خرید {offer_data['percentage_to_sell']}% سهم شما دارد."
+        supabase.table('purchase_requests').insert({"offer_id": offer_id, "buyer_national_id": buyer_nid, "status": "pending"}).execute()
+        seller = supabase.table('member').select('chat_id').eq('nationalcode', offer_data['seller_national_id']).execute()
         if seller.data and seller.data[0].get('chat_id'):
-            buyer = supabase.table('member').select('first_name, last_name').eq('nationalcode', buyer_nid).execute()
-            buyer_name = f"{buyer.data[0]['first_name']} {buyer.data[0]['last_name']}"
-            message = f"کاربر {buyer_name} تمایل به خرید {offer_data['percentage_to_sell']}% سهم شما دارد."
             requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": seller.data[0]['chat_id'], "text": message})
         return jsonify({"message": "درخواست ثبت شد.", "offer": offer_data})
     except Exception as e:
@@ -232,6 +235,41 @@ def cancel_offer(offer_id):
     except Exception as e:
         print(f"Cancel Offer Error: {e}")
         return jsonify({"error": "خطا در لغو پیشنهاد."}), 500
+
+@app.route('/api/approve-request/<int:request_id>', methods=['POST'])
+def approve_request(request_id):
+    data = request.get_json(silent=True)
+    seller_nid = data.get('seller_nid')
+    if not seller_nid: return jsonify({"error": "کد ملی فروشنده ارسال نشده است."}), 400
+    try:
+        request = supabase.table('purchase_requests').select('offer_id, buyer_national_id, status').eq('id', request_id).execute()
+        if not request.data: return jsonify({"error": "درخواست یافت نشد."}), 404
+        if request.data[0]['status'] != 'pending': return jsonify({"error": "این درخواست قابل تأیید نیست."}), 400
+        offer = supabase.table('sale_offers').select('seller_national_id, percentage_to_sell, status').eq('id', request.data[0]['offer_id']).execute()
+        if not offer.data or offer.data[0]['seller_national_id'] != seller_nid: return jsonify({"error": "شما مجاز به تأیید این درخواست نیستید."}), 403
+        supabase.table('purchase_requests').update({'status': 'approved'}).eq('id', request_id).execute()
+        supabase.table('sale_offers').update({'status': 'sold'}).eq('id', request.data[0]['offer_id']).execute()
+        return jsonify({"message": "درخواست با موفقیت تأیید شد."})
+    except Exception as e:
+        print(f"Approve Request Error: {e}")
+        return jsonify({"error": "خطا در تأیید درخواست."}), 500
+
+@app.route('/api/reject-request/<int:request_id>', methods=['POST'])
+def reject_request(request_id):
+    data = request.get_json(silent=True)
+    seller_nid = data.get('seller_nid')
+    if not seller_nid: return jsonify({"error": "کد ملی فروشنده ارسال نشده است."}), 400
+    try:
+        request = supabase.table('purchase_requests').select('offer_id, buyer_national_id, status').eq('id', request_id).execute()
+        if not request.data: return jsonify({"error": "درخواست یافت نشد."}), 404
+        if request.data[0]['status'] != 'pending': return jsonify({"error": "این درخواست قابل رد نیست."}), 400
+        offer = supabase.table('sale_offers').select('seller_national_id, status').eq('id', request.data[0]['offer_id']).execute()
+        if not offer.data or offer.data[0]['seller_national_id'] != seller_nid: return jsonify({"error": "شما مجاز به رد این درخواست نیستید."}), 403
+        supabase.table('purchase_requests').update({'status': 'rejected'}).eq('id', request_id).execute()
+        return jsonify({"message": "درخواست با موفقیت رد شد."})
+    except Exception as e:
+        print(f"Reject Request Error: {e}")
+        return jsonify({"error": "خطا در رد درخواست."}), 500
 
 @app.route('/api/admin-data')
 def get_admin_data():
