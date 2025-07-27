@@ -25,6 +25,9 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 
 # --- تنظیمات و اتصالات ---
 OTP_EXPIRATION_SECONDS = 120
+TEST_USERS = ['1111111111', '2222222222']  # کاربران تستی
+TEST_OTP = '11111'  # OTP ثابت برای تست
+
 try:
     BOT_TOKEN = os.environ.get("BOT_TOKEN")
     BALE_API_URL = f"https://tapi.bale.ai/bot{BOT_TOKEN}"
@@ -32,6 +35,7 @@ try:
     key: str = os.environ.get("SUPABASE_KEY")
     supabase: Client = create_client(url, key)
     print("Successfully connected to Supabase.")
+    print(f"🧪 TEST MODE: Test users {TEST_USERS} will use OTP {TEST_OTP}")
 except Exception as e:
     print(f"ERROR: Could not connect to services. {e}")
     sys.exit(1)
@@ -85,53 +89,42 @@ def start_login():
     national_id = data.get('national_id')
     if not national_id: return jsonify({"error": "کد ملی الزامی است"}), 400
     
-    print(f"🔍 DEBUG: Starting login for national_id: {national_id}")
-    
     try:
         response = supabase.table('member').select("phonenumber, chat_id, share_percentage").eq('nationalcode', national_id).execute()
         
-        print(f"🔍 DEBUG: Database response: {response.data}")
-        
         if not response.data:
-            print(f"🚨 DEBUG: No user found for national_id: {national_id}")
             return jsonify({"error": "کد ملی وارد شده در سامانه ثبت نشده است."}), 404
         
         user = response.data[0]
-        print(f"🔍 DEBUG: User data: {user}")
         
         if user.get('share_percentage') is None:
             supabase.table('member').update({"share_percentage": 100}).eq('nationalcode', national_id).execute()
         
         if user.get('phonenumber') and user.get('chat_id'):
-            print(f"🔍 DEBUG: User has phone and chat_id - sending OTP")
+            # حالت تست - OTP ثابت
+            if national_id in TEST_USERS:
+                print(f"🧪 TEST MODE: Using fixed OTP {TEST_OTP} for test user {national_id}")
+                otp_storage[national_id] = {"code": TEST_OTP, "timestamp": time.time()}
+                return jsonify({"action": "verify_otp"})
             
+            # حالت عادی - OTP تصادفی و ارسال پیام
             otp_code = random.randint(10000, 99999)
             otp_storage[national_id] = {"code": str(otp_code), "timestamp": time.time()}
             
-            print(f"🔍 DEBUG: Generated OTP: {otp_code} for {national_id}")
-            
             otp_message = (f"*تعاونی مصرف کارکنان سازمان حج و زیارت*\n\nسهامدار گرامی، کد محرمانه زیر جهت ورود به سامانه تعاونی مصرف می‌باشد.\n*لطفاً این کد را در اختیار دیگران قرار ندهید.*\n\nکد ورود شما: `{otp_code}`")
-            
-            print(f"🔍 DEBUG: Sending message to chat_id: {user['chat_id']}")
             
             bale_response = requests.post(f"{BALE_API_URL}/sendMessage", 
                                         json={"chat_id": user['chat_id'], "text": otp_message, "parse_mode": "Markdown"})
             
-            print(f"🔍 DEBUG: Bale API response status: {bale_response.status_code}")
-            
-            if bale_response.status_code == 200:
-                print("✅ DEBUG: OTP sent successfully")
-            else:
-                print(f"❌ DEBUG: Failed to send OTP - Status: {bale_response.status_code}")
+            print(f"OTP {otp_code} sent to {national_id}, Bale response: {bale_response.status_code}")
                 
             return jsonify({"action": "verify_otp"})
         else:
-            print(f"🔍 DEBUG: User needs registration - phone: {user.get('phonenumber')}, chat_id: {user.get('chat_id')}")
             token = secrets.token_urlsafe(16)
             linking_tokens[token] = national_id
             return jsonify({"action": "register", "linking_token": token})
     except Exception as e:
-        print(f"❌ DEBUG: Login Start Error: {e}")
+        print(f"Login Start Error: {e}")
         return jsonify({"error": "خطا در بررسی اطلاعات کاربر."}), 500
 
 @app.route('/api/update-profile', methods=['POST'])
@@ -194,7 +187,6 @@ def handle_sale_offers():
 @app.route('/api/sale-offers/<int:offer_id>')
 def get_offer_details(offer_id):
     try:
-        # دریافت جزئیات پیشنهاد با اطلاعات فروشنده
         response = supabase.table('sale_offers').select('*, member:seller_national_id ( first_name, last_name )').eq('id', offer_id).eq('status', 'active').execute()
         
         if not response.data:
@@ -202,7 +194,6 @@ def get_offer_details(offer_id):
         
         offer = response.data[0]
         
-        # محاسبه قیمت معادل ۱۰۰٪
         if offer['percentage_to_sell'] > 0:
             offer['normalized_price'] = int((offer['price'] / offer['percentage_to_sell']) * 100)
         else:
@@ -271,13 +262,17 @@ def create_purchase_request():
         if duplicate_check.data:
             return jsonify({"error": "شما قبلاً برای این پیشنهاد درخواست خرید ثبت کرده‌اید."}), 409
         supabase.table('purchase_requests').insert({"offer_id": offer_id, "buyer_national_id": buyer_national_id}).execute()
-        seller_info_res = supabase.table('member').select('chat_id, first_name, last_name').eq('nationalcode', seller_id).execute()
-        buyer_info_res = supabase.table('member').select('first_name, last_name').eq('nationalcode', buyer_national_id).execute()
-        if seller_info_res.data and seller_info_res.data[0].get('chat_id') and buyer_info_res.data:
-            seller_chat_id = seller_info_res.data[0]['chat_id']
-            buyer_name = f"{buyer_info_res.data[0]['first_name']} {buyer_info_res.data[0]['last_name']}"
-            notification_text = f"یک درخواست خرید جدید برای پیشنهاد شما از طرف «{buyer_name}» ثبت شد. لطفاً برای مدیریت درخواست‌ها به سامانه مراجعه کنید."
-            requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": seller_chat_id, "text": notification_text})
+        
+        # ارسال نوتیف به فروشنده (تنها برای کاربران غیرتستی)
+        if seller_id not in TEST_USERS:
+            seller_info_res = supabase.table('member').select('chat_id, first_name, last_name').eq('nationalcode', seller_id).execute()
+            buyer_info_res = supabase.table('member').select('first_name, last_name').eq('nationalcode', buyer_national_id).execute()
+            if seller_info_res.data and seller_info_res.data[0].get('chat_id') and buyer_info_res.data:
+                seller_chat_id = seller_info_res.data[0]['chat_id']
+                buyer_name = f"{buyer_info_res.data[0]['first_name']} {buyer_info_res.data[0]['last_name']}"
+                notification_text = f"یک درخواست خرید جدید برای پیشنهاد شما از طرف «{buyer_name}» ثبت شد. لطفاً برای مدیریت درخواست‌ها به سامانه مراجعه کنید."
+                requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": seller_chat_id, "text": notification_text})
+        
         return jsonify({"message": "درخواست شما با موفقیت ثبت و برای فروشنده ارسال شد."}), 201
     except Exception as e:
         return jsonify({"error": f"Purchase Request Error: {str(e)}"}), 500
@@ -297,14 +292,18 @@ def approve_request():
         result = response.data[0]
         if result['status_code'] != 200:
             return jsonify({"error": result['message']}), result['status_code']
+        
+        # ارسال نوتیف تنها برای کاربران غیرتستی
         buyer_chat_id = result.get('buyer_chat_id')
         seller_chat_id = result.get('seller_chat_id')
         buyer_phone = result.get('buyer_phone')
         seller_phone = result.get('seller_phone')
-        if buyer_chat_id and seller_phone:
+        
+        if buyer_chat_id and seller_phone and seller_nid not in TEST_USERS:
             requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": buyer_chat_id, "text": f"تبریک! درخواست خرید شما تایید شد.\nاطلاعات تماس فروشنده: {seller_phone}"})
-        if seller_chat_id and buyer_phone:
+        if seller_chat_id and buyer_phone and seller_nid not in TEST_USERS:
              requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": seller_chat_id, "text": f"شما درخواست خرید را تایید کردید.\nاطلاعات تماس خریدار: {buyer_phone}"})
+        
         return jsonify({"message": result['message']})
     except Exception as e:
         print(f"Approve Request Error: {e}")
@@ -323,12 +322,16 @@ def reject_request():
         if not req_res.data or req_res.data['sale_offers']['seller_national_id'] != seller_nid:
             return jsonify({"error": "شما اجازه رد این درخواست را ندارید."}), 403
         supabase.table('purchase_requests').update({'status': 'rejected'}).eq('id', request_id).execute()
-        buyer_national_id = req_res.data['buyer_national_id']
-        buyer_info_res = supabase.table('member').select('chat_id').eq('nationalcode', buyer_national_id).execute()
-        if buyer_info_res.data and buyer_info_res.data[0].get('chat_id'):
-            buyer_chat_id = buyer_info_res.data[0]['chat_id']
-            notification_text = "متاسفانه درخواست خرید شما برای یک سهم، توسط فروشنده رد شد."
-            requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": buyer_chat_id, "text": notification_text})
+        
+        # ارسال نوتیف تنها برای کاربران غیرتستی
+        if seller_nid not in TEST_USERS:
+            buyer_national_id = req_res.data['buyer_national_id']
+            buyer_info_res = supabase.table('member').select('chat_id').eq('nationalcode', buyer_national_id).execute()
+            if buyer_info_res.data and buyer_info_res.data[0].get('chat_id'):
+                buyer_chat_id = buyer_info_res.data[0]['chat_id']
+                notification_text = "متاسفانه درخواست خرید شما برای یک سهم، توسط فروشنده رد شد."
+                requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": buyer_chat_id, "text": notification_text})
+        
         return jsonify({"message": "درخواست با موفقیت رد شد."})
     except Exception as e:
         print(f"Reject Request Error: {e}")
