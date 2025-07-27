@@ -32,6 +32,8 @@ try:
     key: str = os.environ.get("SUPABASE_KEY")
     supabase: Client = create_client(url, key)
     print("Successfully connected to Supabase.")
+    print(f"🔍 DEBUG: BOT_TOKEN starts with: {BOT_TOKEN[:10]}...")
+    print(f"🔍 DEBUG: BALE_API_URL: {BALE_API_URL}")
 except Exception as e:
     print(f"ERROR: Could not connect to services. {e}")
     sys.exit(1)
@@ -56,6 +58,21 @@ def serve_offer_detail(): return send_from_directory(app.static_folder, 'offer_d
 def serve_manage_offer(): return send_from_directory(app.static_folder, 'manage_offer.html')
 @app.route('/health-check')
 def health_check(): return '', 204
+
+# --- تست API بله ---
+@app.route('/test-bale')
+def test_bale():
+    test_message = "تست پیام از سرور"
+    test_chat_id = "123456789"  # یک chat_id تستی
+    
+    response = requests.post(f"{BALE_API_URL}/sendMessage", 
+                           json={"chat_id": test_chat_id, "text": test_message})
+    
+    return jsonify({
+        "status": response.status_code,
+        "response": response.text,
+        "api_url": BALE_API_URL
+    })
 
 # --- API Endpoints ---
 @app.route('/api/member-data')
@@ -84,25 +101,57 @@ def start_login():
         return jsonify({"action": "register", "linking_token": "fake_token_for_bot"})
     national_id = data.get('national_id')
     if not national_id: return jsonify({"error": "کد ملی الزامی است"}), 400
+    
+    print(f"🔍 DEBUG: Starting login for national_id: {national_id}")
+    
     try:
         response = supabase.table('member').select("phonenumber, chat_id, share_percentage").eq('nationalcode', national_id).execute()
+        
+        print(f"🔍 DEBUG: Database response: {response.data}")
+        
         if not response.data:
+            print(f"🚨 DEBUG: No user found for national_id: {national_id}")
             return jsonify({"error": "کد ملی وارد شده در سامانه ثبت نشده است."}), 404
+        
         user = response.data[0]
+        print(f"🔍 DEBUG: User data: {user}")
+        
         if user.get('share_percentage') is None:
             supabase.table('member').update({"share_percentage": 100}).eq('nationalcode', national_id).execute()
+        
         if user.get('phonenumber') and user.get('chat_id'):
+            print(f"🔍 DEBUG: User has phone and chat_id - sending OTP")
+            
             otp_code = random.randint(10000, 99999)
             otp_storage[national_id] = {"code": str(otp_code), "timestamp": time.time()}
+            
+            print(f"🔍 DEBUG: Generated OTP: {otp_code} for {national_id}")
+            print(f"🔍 DEBUG: Stored in otp_storage: {otp_storage}")
+            
             otp_message = (f"*تعاونی مصرف کارکنان سازمان حج و زیارت*\n\nسهامدار گرامی، کد محرمانه زیر جهت ورود به سامانه تعاونی مصرف می‌باشد.\n*لطفاً این کد را در اختیار دیگران قرار ندهید.*\n\nکد ورود شما: `{otp_code}`")
-            requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": user['chat_id'], "text": otp_message, "parse_mode": "Markdown"})
+            
+            print(f"🔍 DEBUG: Sending message to chat_id: {user['chat_id']}")
+            print(f"🔍 DEBUG: BALE_API_URL: {BALE_API_URL}")
+            
+            bale_response = requests.post(f"{BALE_API_URL}/sendMessage", 
+                                        json={"chat_id": user['chat_id'], "text": otp_message, "parse_mode": "Markdown"})
+            
+            print(f"🔍 DEBUG: Bale API response status: {bale_response.status_code}")
+            print(f"🔍 DEBUG: Bale API response text: {bale_response.text}")
+            
+            if bale_response.status_code == 200:
+                print("✅ DEBUG: OTP sent successfully")
+            else:
+                print(f"❌ DEBUG: Failed to send OTP - Status: {bale_response.status_code}")
+                
             return jsonify({"action": "verify_otp"})
         else:
+            print(f"🔍 DEBUG: User needs registration - phone: {user.get('phonenumber')}, chat_id: {user.get('chat_id')}")
             token = secrets.token_urlsafe(16)
             linking_tokens[token] = national_id
             return jsonify({"action": "register", "linking_token": token})
     except Exception as e:
-        print(f"Login Start Error: {e}")
+        print(f"❌ DEBUG: Login Start Error: {e}")
         return jsonify({"error": "خطا در بررسی اطلاعات کاربر."}), 500
 
 @app.route('/api/update-profile', methods=['POST'])
@@ -285,20 +334,35 @@ def reject_request():
 @app.route('/webhook', methods=['POST'])
 def webhook():
     data = request.get_json()
+    print(f"🔍 DEBUG: Webhook received data: {data}")
+    
     if not data: return "ok", 200
     message = data.get("message", {})
     chat_id = message.get("chat", {}).get("id")
+    
+    print(f"🔍 DEBUG: Chat ID: {chat_id}")
+    
     if not chat_id: return "ok", 200
     if "contact" in message:
         phone_from_bale = message['contact']['phone_number']
+        print(f"🔍 DEBUG: Contact received - phone: {phone_from_bale}")
+        
         if phone_from_bale.startswith('98'): normalized_phone = '+' + phone_from_bale
         elif phone_from_bale.startswith('0'): normalized_phone = '+98' + phone_from_bale[1:]
         else: normalized_phone = phone_from_bale
+        
+        print(f"🔍 DEBUG: Normalized phone: {normalized_phone}")
+        
         session_data = otp_storage.get(str(chat_id))
+        print(f"🔍 DEBUG: Session data for chat_id {chat_id}: {session_data}")
+        
         if not session_data or "national_id" not in session_data:
             requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": chat_id, "text": "فرآیند ثبت‌نام شما یافت نشد."})
             return "ok", 200
         national_id = session_data["national_id"]
+        
+        print(f"🔍 DEBUG: Processing registration for national_id: {national_id}")
+        
         try:
             res = supabase.table('member').select("nationalcode").eq('phonenumber', normalized_phone).execute()
             if res.data:
@@ -308,17 +372,28 @@ def webhook():
             del otp_storage[str(chat_id)]
             otp_code = random.randint(10000, 99999)
             otp_storage[national_id] = {"code": str(otp_code), "timestamp": time.time()}
+            
+            print(f"🔍 DEBUG: Generated OTP for new user: {otp_code}")
+            
             otp_message = (f"ثبت‌نام شما با موفقیت انجام شد.\n\n*تعاونی مصرف کارکنان سازمان حج و زیارت*\n\nسهامدار گرامی، کد محرمانه زیر جهت ورود به سامانه تعاونی مصرف می‌باشد.\n*لطفاً این کد را در اختیار دیگران قرار ندهید.*\n\nکد ورود شما: `{otp_code}`")
             payload = {"chat_id": chat_id, "text": otp_message, "parse_mode": "Markdown", "reply_markup": {"remove_keyboard": True}}
-            requests.post(f"{BALE_API_URL}/sendMessage", json=payload)
+            
+            bale_response = requests.post(f"{BALE_API_URL}/sendMessage", json=payload)
+            print(f"🔍 DEBUG: Registration OTP sent - Status: {bale_response.status_code}")
+            
         except Exception as e:
             print(f"Webhook Contact Error: {e}")
             requests.post(f"{BALE_API_URL}/sendMessage", json={"chat_id": chat_id, "text": "خطایی در فرآیند ثبت‌نام رخ داد."})
     elif "text" in message and message.get("text").startswith('/start '):
         token = message.get("text").split(' ', 1)[1]
+        print(f"🔍 DEBUG: Start command with token: {token}")
+        
         if token in linking_tokens:
             national_id = linking_tokens.pop(token)
             otp_storage[str(chat_id)] = {"national_id": national_id}
+            
+            print(f"🔍 DEBUG: Token matched, stored national_id {national_id} for chat_id {chat_id}")
+            
             payload = {
                 "chat_id": chat_id, "text": "برای تکمیل ثبت‌نام اولیه، لطفاً روی دکمه زیر کلیک کرده و شماره موبایل خود را با ما به اشتراک بگذارید.",
                 "reply_markup": {"keyboard": [[{"text": "🔒 اشتراک‌گذاری شماره موبایل", "request_contact": True}]], "resize_keyboard": True, "one_time_keyboard": True}
@@ -330,13 +405,25 @@ def webhook():
 def verify_otp():
     data = request.get_json()
     national_id, otp_code = data.get('national_id'), data.get('otp_code')
+    
+    print(f"🔍 DEBUG: Verifying OTP - national_id: {national_id}, otp_code: {otp_code}")
+    print(f"🔍 DEBUG: Current otp_storage: {otp_storage}")
+    
     if not all([national_id, otp_code]): return jsonify({"error": "اطلاعات ناقص است."}), 400
-    if national_id not in otp_storage: return jsonify({"error": "فرآیند ورود یافت نشد."}), 404
+    if national_id not in otp_storage: 
+        print(f"❌ DEBUG: National ID {national_id} not found in otp_storage")
+        return jsonify({"error": "فرآیند ورود یافت نشد."}), 404
+    
     stored_otp = otp_storage[national_id]
+    print(f"🔍 DEBUG: Stored OTP data: {stored_otp}")
+    
     if time.time() - stored_otp["timestamp"] > OTP_EXPIRATION_SECONDS:
         del otp_storage[national_id]
+        print(f"❌ DEBUG: OTP expired for {national_id}")
         return jsonify({"error": "کد تایید منقضی شده است."}), 410
+    
     if stored_otp["code"] == otp_code:
+        print(f"✅ DEBUG: OTP verified successfully for {national_id}")
         del otp_storage[national_id]
         try:
             response = supabase.table('member').select("address, postal_code").eq('nationalcode', national_id).execute()
@@ -352,6 +439,7 @@ def verify_otp():
             print(f"Profile check error: {e}")
             return jsonify({"message": "ورود موفقیت‌آمیز بود!", "action": "go_to_profile"})
     else:
+        print(f"❌ DEBUG: Wrong OTP - Expected: {stored_otp['code']}, Got: {otp_code}")
         return jsonify({"error": "کد وارد شده صحیح نیست."}), 400
 
 if __name__ == '__main__':
