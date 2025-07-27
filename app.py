@@ -279,8 +279,8 @@ def reject_request(request_id):
 def get_admin_data():
     try:
         offers = supabase.table('sale_offers').select('*, member:seller_national_id (first_name, last_name)').execute()
-        requests = supabase.table('purchase_requests').select('*, sale_offers(seller_national_id, percentage_to_sell, price), member:buyer_national_id (first_name, last_name, phonenumber)').execute()
-        print("Admin data requests raw:", requests.data)
+requests = supabase.table('purchase_requests').select('*, sale_offers(seller_national_id, percentage_to_sell, price), member:buyer_national_id (first_name, last_name, phonenumber)').execute()
+print("Admin data requests raw:", requests.data)
         for req in requests.data:
             buyer_data = req.get('member:buyer_national_id', {})
             print(f"Request ID: {req.get('id')}, Buyer data: {buyer_data}, Buyer NID: {req.get('buyer_national_id')}")
