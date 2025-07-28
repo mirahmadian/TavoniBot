@@ -139,11 +139,7 @@ def handle_sale_offers():
             already_listed_percentage = sum(offer['percentage_to_sell'] for offer in offers_res.data)
             if (already_listed_percentage + percentage_to_sell) > total_shares:
                 remaining = total_shares - already_listed_percentage
-                if remaining <= 0:
-                    return jsonify({"error": "شما قبلاً تمام سهم خود را برای فروش گذاشته‌اید و سهمی برای فروش باقی نمانده است."}), 400
-                else:
-                    return jsonify({"error": f"شما سهم کافی برای فروش ندارید. تنها می‌توانید {remaining}% دیگر از سهم خود را برای فروش بگذارید."}), 400
-            
+                return jsonify({"error": f"شما سهم کافی برای فروش ندارید. تنها می‌توانید {remaining}% دیگر از سهم خود را برای فروش بگذارید."}), 400
             supabase.table('sale_offers').insert({ "seller_national_id": national_id, "percentage_to_sell": percentage_to_sell, "price": price, "status": "active" }).execute()
             return jsonify({"message": "پیشنهاد شما با موفقیت ثبت شد."}), 201
         except Exception as e:
@@ -285,6 +281,30 @@ def reject_request():
     except Exception as e:
         print(f"Reject Request Error: {e}")
         return jsonify({"error": "خطا در فرآیند رد کردن درخواست."}), 500
+        
+@app.route('/api/cancel-offer', methods=['POST'])
+def cancel_offer():
+    data = request.get_json(silent=True)
+    if not data: return jsonify({"error": "درخواست نامعتبر"}), 400
+    offer_id = data.get('offer_id')
+    national_id = data.get('national_id')
+    if not all([offer_id, national_id]):
+        return jsonify({"error": "اطلاعات ارسالی ناقص است."}), 400
+    try:
+        # اعتبارسنجی: آیا کاربری که درخواست لغو می‌دهد، همان فروشنده است؟
+        offer_res = supabase.table('sale_offers').select('seller_national_id').eq('id', offer_id).eq('status', 'active').execute()
+        if not offer_res.data or offer_res.data[0]['seller_national_id'] != national_id:
+            return jsonify({"error": "شما اجازه لغو این پیشنهاد را ندارید."}), 403
+        
+        # تغییر وضعیت پیشنهاد به "لغو شده"
+        supabase.table('sale_offers').update({'status': 'cancelled'}).eq('id', offer_id).execute()
+        
+        # (اختیاری) می‌توان به تمام خریدارانی که برای این پیشنهاد درخواست داده بودند، نوتیفیکیشن ارسال کرد
+        
+        return jsonify({"message": "پیشنهاد شما با موفقیت لغو شد."})
+    except Exception as e:
+        print(f"Cancel Offer Error: {e}")
+        return jsonify({"error": "خطا در فرآیند لغو پیشنهاد."}), 500
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
