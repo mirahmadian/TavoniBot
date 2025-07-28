@@ -42,18 +42,25 @@ linking_tokens = {}
 # --- مسیرهای اصلی ---
 @app.route('/')
 def serve_index(): return send_from_directory(app.static_folder, 'index.html')
+
 @app.route('/profile.html')
 def serve_profile(): return send_from_directory(app.static_folder, 'profile.html')
+
 @app.route('/dashboard.html')
 def serve_dashboard(): return send_from_directory(app.static_folder, 'dashboard.html')
+
 @app.route('/sell_share.html')
 def serve_sell_share(): return send_from_directory(app.static_folder, 'sell_share.html')
+
 @app.route('/view_offers.html')
 def serve_view_offers(): return send_from_directory(app.static_folder, 'view_offers.html')
+
 @app.route('/offer_detail.html')
 def serve_offer_detail(): return send_from_directory(app.static_folder, 'offer_detail.html')
+
 @app.route('/manage_offer.html')
 def serve_manage_offer(): return send_from_directory(app.static_folder, 'manage_offer.html')
+
 @app.route('/health-check')
 def health_check(): return '', 204
 
@@ -199,6 +206,22 @@ def get_my_offer_with_requests(offer_id):
     except Exception as e:
         print(f"Error fetching offer with requests: {e}")
         return jsonify({"error": "خطا در دریافت اطلاعات مدیریت پیشنهاد."}), 500
+
+@app.route('/api/sale-offers/<int:offer_id>')
+def get_offer_details(offer_id):
+    try:
+        response = supabase.table('sale_offers').select('*, member:seller_national_id ( first_name, last_name )').eq('id', offer_id).execute()
+        if response.data:
+            offer = response.data[0]
+            if offer['percentage_to_sell'] > 0:
+                offer['normalized_price'] = int((offer['price'] / offer['percentage_to_sell']) * 100)
+            else: offer['normalized_price'] = 0
+            return jsonify(offer)
+        else:
+            return jsonify({"error": "پیشنهاد مورد نظر یافت نشد."}), 404
+    except Exception as e:
+        print(f"Get Offer Detail Error: {e}")
+        return jsonify({"error": "خطا در دریافت اطلاعات پیشنهاد."}), 500
         
 @app.route('/api/purchase-requests', methods=['POST'])
 def create_purchase_request():

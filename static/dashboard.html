@@ -61,41 +61,10 @@
                 </div>
         </div>
     </div>
-    <dialog id="message_modal" class="modal">
-        <div class="modal-box text-center">
-            <h3 id="modal_title" class="font-bold text-lg"></h3>
-            <p id="modal_message" class="py-4"></p>
-            <div class="modal-action justify-center">
-                <form method="dialog"><button id="modal_button" class="btn">بستن</button></form>
-            </div>
-        </div>
-    </dialog>
-    
-    <dialog id="confirm_cancel_modal" class="modal">
-        <div class="modal-box text-center">
-            <h3 class="font-bold text-lg">تأیید لغو پیشنهاد</h3>
-            <p class="py-4">آیا از لغو این پیشنهاد فروش مطمئن هستید؟ این عمل غیرقابل بازگشت است.</p>
-            <div class="modal-action justify-center gap-4">
-                <button id="confirm_cancel_btn" class="btn btn-error">بله، لغو کن</button>
-                <form method="dialog"><button class="btn btn-ghost">انصراف</button></form>
-            </div>
-        </div>
-    </dialog>
 
 <script>
     const API_BACKEND_URL = "https://tavonibot.onrender.com";
     let currentNationalId = '';
-
-    function showModal(title, message, isSuccess) {
-        const modal = document.getElementById('message_modal');
-        document.getElementById('modal_title').textContent = title;
-        document.getElementById('modal_message').textContent = message;
-        const modalButton = document.getElementById('modal_button');
-        modalButton.className = 'btn';
-        if (isSuccess) { modalButton.classList.add('btn-success'); } 
-        else { modalButton.classList.add('btn-error'); }
-        modal.showModal();
-    }
 
     window.onload = function() {
         const urlParams = new URLSearchParams(window.location.search);
@@ -182,37 +151,6 @@
         } catch (error) {
             loadingEl.classList.add('hidden');
             noOffersEl.querySelector('p').textContent = 'خطا در ارتباط با سرور.';
-        }
-    }
-
-    function showCancelConfirmation(offerId) {
-        const modal = document.getElementById('confirm_cancel_modal');
-        const confirmBtn = document.getElementById('confirm_cancel_btn');
-        confirmBtn.onclick = () => cancelOffer(offerId);
-        modal.showModal();
-    }
-
-    async function cancelOffer(offerId) {
-        document.getElementById('confirm_cancel_modal').close();
-        try {
-            const response = await fetch(`${API_BACKEND_URL}/api/cancel-offer`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    offer_id: offerId,
-                    national_id: currentNationalId
-                })
-            });
-            const result = await response.json();
-            if (response.ok) {
-                showModal('موفقیت', result.message, true);
-                const modal = document.getElementById('message_modal');
-                modal.addEventListener('close', () => { location.reload(); }, { once: true });
-            } else {
-                showModal('خطا', result.error, false);
-            }
-        } catch (error) {
-            showModal('خطا', 'خطا در ارتباط با سرور.', false);
         }
     }
 </script>
