@@ -61,12 +61,24 @@
                 </div>
         </div>
     </div>
+    
     <dialog id="message_modal" class="modal">
         <div class="modal-box text-center">
             <h3 id="modal_title" class="font-bold text-lg"></h3>
             <p id="modal_message" class="py-4"></p>
             <div class="modal-action justify-center">
                 <form method="dialog"><button id="modal_button" class="btn">بستن</button></form>
+            </div>
+        </div>
+    </dialog>
+    
+    <dialog id="confirm_cancel_modal" class="modal">
+        <div class="modal-box text-center">
+            <h3 class="font-bold text-lg">تأیید لغو پیشنهاد</h3>
+            <p class="py-4">آیا از لغو این پیشنهاد فروش مطمئن هستید؟ این عمل غیرقابل بازگشت است.</p>
+            <div class="modal-action justify-center gap-4">
+                <button id="confirm_cancel_btn" class="btn btn-error">بله، لغو کن</button>
+                <form method="dialog"><button class="btn btn-ghost">انصراف</button></form>
             </div>
         </div>
     </dialog>
@@ -153,7 +165,7 @@
                             <div class="join">
                                 <a href="manage_offer.html?id=${offer.offer_id}&nid=${currentNationalId}" class="btn btn-sm join-item btn-outline-primary">مدیریت</a>
                                 <div class="tooltip" data-tip="لغو پیشنهاد">
-                                    <button onclick="cancelOffer(${offer.offer_id})" class="btn btn-sm join-item btn-ghost text-error">
+                                    <button onclick="showCancelConfirmation(${offer.offer_id})" class="btn btn-sm join-item btn-ghost text-error">
                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                             <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" />
                                         </svg>
@@ -174,11 +186,15 @@
         }
     }
 
-    async function cancelOffer(offerId) {
-        if (!confirm('آیا از لغو این پیشنهاد فروش مطمئن هستید؟ این عمل غیرقابل بازگشت است.')) {
-            return;
-        }
+    function showCancelConfirmation(offerId) {
+        const modal = document.getElementById('confirm_cancel_modal');
+        const confirmBtn = document.getElementById('confirm_cancel_btn');
+        confirmBtn.onclick = () => cancelOffer(offerId);
+        modal.showModal();
+    }
 
+    async function cancelOffer(offerId) {
+        document.getElementById('confirm_cancel_modal').close();
         try {
             const response = await fetch(`${API_BACKEND_URL}/api/cancel-offer`, {
                 method: 'POST',
