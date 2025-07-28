@@ -159,9 +159,12 @@ def handle_sale_offers():
             total_shares = member_res.data[0].get('share_percentage', 100)
             offers_res = supabase.table('sale_offers').select('percentage_to_sell').eq('seller_national_id', national_id).eq('status', 'active').execute()
             already_listed_percentage = sum(offer['percentage_to_sell'] for offer in offers_res.data)
-            if (already_listed_percentage + percentage_to_sell) > total_shares:
-                remaining = total_shares - already_listed_percentage
-                return jsonify({"error": f"شما سهم کافی برای فروش ندارید. تنها می‌توانید {remaining}% دیگر از سهم خود را برای فروش بگذارید."}), 400
+           if (already_listed_percentage + percentage_to_sell) > total_shares:
+    remaining = total_shares - already_listed_percentage
+    if remaining <= 0:
+        return jsonify({"error": "شما قبلاً تمام سهم خود را برای فروش گذاشته‌اید و سهمی برای فروش باقی نمانده است."}), 400
+    else:
+        return jsonify({"error": f"شما سهم کافی برای فروش ندارید. تنها می‌توانید {remaining}% دیگر از سهم خود را برای فروش بگذارید."}), 400
             supabase.table('sale_offers').insert({ "seller_national_id": national_id, "percentage_to_sell": percentage_to_sell, "price": price, "status": "active" }).execute()
             return jsonify({"message": "پیشنهاد شما با موفقیت ثبت شد."}), 201
         except Exception as e:
