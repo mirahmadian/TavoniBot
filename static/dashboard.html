@@ -61,7 +61,6 @@
                 </div>
         </div>
     </div>
-    
     <dialog id="message_modal" class="modal">
         <div class="modal-box text-center">
             <h3 id="modal_title" class="font-bold text-lg"></h3>
@@ -123,7 +122,10 @@
             const data = await response.json();
 
             if (response.ok) {
-                document.getElementById('welcome_message').textContent = `سهامدار محترم جناب آقای ${data.first_name} ${data.last_name}، خوش آمدید.`;
+                // --- بخش اصلاح شده ---
+                document.getElementById('welcome_message').textContent = `سهامدار گرامی ${data.first_name} ${data.last_name}، خوش آمدید.`;
+                // --- پایان بخش اصلاح شده ---
+                
                 document.getElementById('share_percentage').textContent = data.share_percentage || 0;
                 loadingEl.classList.add('hidden');
                 contentEl.classList.remove('hidden');
