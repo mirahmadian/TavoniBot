@@ -281,30 +281,6 @@ def reject_request():
     except Exception as e:
         print(f"Reject Request Error: {e}")
         return jsonify({"error": "خطا در فرآیند رد کردن درخواست."}), 500
-        
-@app.route('/api/cancel-offer', methods=['POST'])
-def cancel_offer():
-    data = request.get_json(silent=True)
-    if not data: return jsonify({"error": "درخواست نامعتبر"}), 400
-    offer_id = data.get('offer_id')
-    national_id = data.get('national_id')
-    if not all([offer_id, national_id]):
-        return jsonify({"error": "اطلاعات ارسالی ناقص است."}), 400
-    try:
-        # اعتبارسنجی: آیا کاربری که درخواست لغو می‌دهد، همان فروشنده است؟
-        offer_res = supabase.table('sale_offers').select('seller_national_id').eq('id', offer_id).eq('status', 'active').execute()
-        if not offer_res.data or offer_res.data[0]['seller_national_id'] != national_id:
-            return jsonify({"error": "شما اجازه لغو این پیشنهاد را ندارید."}), 403
-        
-        # تغییر وضعیت پیشنهاد به "لغو شده"
-        supabase.table('sale_offers').update({'status': 'cancelled'}).eq('id', offer_id).execute()
-        
-        # (اختیاری) می‌توان به تمام خریدارانی که برای این پیشنهاد درخواست داده بودند، نوتیفیکیشن ارسال کرد
-        
-        return jsonify({"message": "پیشنهاد شما با موفقیت لغو شد."})
-    except Exception as e:
-        print(f"Cancel Offer Error: {e}")
-        return jsonify({"error": "خطا در فرآیند لغو پیشنهاد."}), 500
 
 @app.route('/webhook', methods=['POST'])
 def webhook():

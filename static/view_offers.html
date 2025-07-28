@@ -9,287 +9,133 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { font-family: Vazirmatn, sans-serif; background-color: #f0f2f5; }
-        .offer-card { transition: transform 0.2s ease-in-out; }
-        .offer-card:hover { transform: translateY(-2px); }
-        .price-excellent { background: linear-gradient(135deg, #10b981, #059669); color: white; padding: 2px 6px; border-radius: 4px; }
-        .price-warning { background: linear-gradient(135deg, #f59e0b, #d97706); color: white; padding: 2px 6px; border-radius: 4px; }
-        .price-danger { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; padding: 2px 6px; border-radius: 4px; }
     </style>
 </head>
 <body class="p-4 md:p-8">
-    <div class="max-w-6xl mx-auto">
-        <!-- Header -->
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-            <div>
-                <h1 class="text-2xl md:text-3xl font-bold text-gray-800">لیست پیشنهادات فروش سهام</h1>
-                <p class="text-gray-600 text-sm mt-1">قیمت‌ها بر اساس ۱۰۰٪ سهم محاسبه شده‌اند</p>
-            </div>
-            <a id="dashboard_link" href="#" class="btn btn-outline">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
-                </svg>
-                بازگشت به داشبورد
-            </a>
+    <div class="max-w-4xl mx-auto">
+        <div class="flex justify-between items-center mb-4">
+            <h1 class="text-2xl font-bold text-gray-800">لیست پیشنهادات فروش سهام</h1>
+            <a id="dashboard_link" href="#" class="btn btn-sm btn-outline">بازگشت به داشبورد</a>
         </div>
         
-        <!-- Controls -->
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-            <div class="flex items-center gap-4">
-                <button id="refresh_btn" onclick="fetchOffers()" class="btn btn-sm btn-ghost">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
-                    </svg>
-                    بروزرسانی
+        <div class="flex justify-end items-center mb-4 gap-2">
+            <span class="text-sm">نحوه نمایش:</span>
+            <div class="join">
+                <button id="grid_view_btn" class="btn btn-sm join-item btn-active" onclick="setView('grid')">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
                 </button>
-                <div class="stats stats-horizontal shadow text-xs">
-                    <div class="stat py-2 px-4">
-                        <div class="stat-title text-xs">تعداد پیشنهادات</div>
-                        <div class="stat-value text-sm" id="offers_count">-</div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="flex items-center gap-2">
-                <span class="text-sm text-gray-600">نحوه نمایش:</span>
-                <div class="join">
-                    <button id="grid_view_btn" class="btn btn-sm join-item btn-active" onclick="setView('grid')">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                        </svg>
-                    </button>
-                    <button id="list_view_btn" class="btn btn-sm join-item" onclick="setView('list')">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd" />
-                        </svg>
-                    </button>
-                </div>
+                <button id="list_view_btn" class="btn btn-sm join-item" onclick="setView('list')">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd" /></svg>
+                </button>
             </div>
         </div>
         
-        <!-- Loading State -->
-        <div id="offers_loading" class="text-center py-12">
-            <span class="loading loading-lg loading-spinner text-primary"></span>
-            <p class="mt-4 text-gray-600">در حال بارگذاری پیشنهادات...</p>
+        <div id="offers_loading" class="text-center">
+            <span class="loading loading-lg loading-spinner"></span>
+            <p>در حال بارگذاری لیست...</p>
         </div>
         
-        <!-- No Offers State -->
-        <div id="no_offers_message" class="text-center py-12 hidden">
-            <div class="bg-base-200 rounded-lg p-8">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <p class="text-gray-600">در حال حاضر هیچ پیشنهاد فعالی از سایر کاربران برای فروش وجود ندارد.</p>
-            </div>
-        </div>
+        <div id="no_offers_message" class="text-center hidden"><p>در حال حاضر هیچ پیشنهاد فعالی برای فروش وجود ندارد.</p></div>
         
-        <!-- Error State -->
-        <div id="error_message" class="alert alert-error hidden">
-            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span id="error_text">خطا در بارگذاری اطلاعات</span>
-        </div>
-        
-        <!-- Offers Container -->
         <div id="offers_container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        </div>
+            </div>
     </div>
 
-    <script>
-        const API_BACKEND_URL = "https://tavonibot.onrender.com";
-        let currentNationalId = '';
-        let currentOffers = [];
+<script>
+    const API_BACKEND_URL = "https://tavonibot.onrender.com";
+    let currentNationalId = '';
 
-        window.onload = function() {
-            const urlParams = new URLSearchParams(window.location.search);
-            currentNationalId = urlParams.get('nid');
-            
-            // اعتبارسنجی national ID
-            if (!currentNationalId || !/^\d{10}$/.test(currentNationalId)) {
-                showError('شناسه کاربر نامعتبر است.');
-                return;
-            }
-            
-            document.getElementById('dashboard_link').href = `dashboard.html?nid=${currentNationalId}`;
-            fetchOffers();
-        };
+    window.onload = function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        currentNationalId = urlParams.get('nid');
+        document.getElementById('dashboard_link').href = `dashboard.html?nid=${currentNationalId}`;
+        fetchOffers();
+    };
 
-        function setView(viewType) {
-            const container = document.getElementById('offers_container');
-            const gridBtn = document.getElementById('grid_view_btn');
-            const listBtn = document.getElementById('list_view_btn');
+    function setView(viewType) {
+        const container = document.getElementById('offers_container');
+        const gridBtn = document.getElementById('grid_view_btn');
+        const listBtn = document.getElementById('list_view_btn');
 
-            if (viewType === 'grid') {
-                container.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6';
-                gridBtn.classList.add('btn-active');
-                listBtn.classList.remove('btn-active');
-                localStorage.setItem('offers_view', 'grid');
-            } else {
-                container.className = 'flex flex-col gap-4';
-                listBtn.classList.add('btn-active');
-                gridBtn.classList.remove('btn-active');
-                localStorage.setItem('offers_view', 'list');
-            }
+        if (viewType === 'grid') {
+            container.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6';
+            gridBtn.classList.add('btn-active');
+            listBtn.classList.remove('btn-active');
+        } else {
+            container.className = 'flex flex-col gap-4';
+            listBtn.classList.add('btn-active');
+            gridBtn.classList.remove('btn-active');
         }
+    }
 
-        function showError(message) {
-            const errorEl = document.getElementById('error_message');
-            const textEl = document.getElementById('error_text');
-            textEl.textContent = message;
-            errorEl.classList.remove('hidden');
-            hideLoading();
-        }
+    async function fetchOffers() {
+        const loadingEl = document.getElementById('offers_loading');
+        const containerEl = document.getElementById('offers_container');
+        const noOffersEl = document.getElementById('no_offers_message');
 
-        function hideError() {
-            document.getElementById('error_message').classList.add('hidden');
-        }
+        try {
+            const response = await fetch(`${API_BACKEND_URL}/api/sale-offers`);
+            const offers = await response.json();
+            loadingEl.classList.add('hidden');
 
-        function showLoading() {
-            document.getElementById('offers_loading').classList.remove('hidden');
-            hideError();
-        }
-
-        function hideLoading() {
-            document.getElementById('offers_loading').classList.add('hidden');
-        }
-
-        function getPriceAnalysis(offers) {
-            if (offers.length === 0) return null;
-            
-            const prices = offers.map(o => o.normalized_price);
-            const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
-            const sortedPrices = [...prices].sort((a, b) => a - b);
-            const median = sortedPrices[Math.floor(sortedPrices.length / 2)];
-            
-            return {
-                average: avgPrice,
-                median: median,
-                min: Math.min(...prices),
-                max: Math.max(...prices),
-                excellent: avgPrice * 0.85, // کمتر از 85% میانگین
-                warning: avgPrice * 1.3,   // بیشتر از 130% میانگین
-                danger: avgPrice * 1.6     // بیشتر از 160% میانگین
-            };
-        }
-
-        function getPriceClass(price, analysis) {
-            if (!analysis) return '';
-            
-            if (price <= analysis.excellent) return 'price-excellent';
-            if (price >= analysis.danger) return 'price-danger';
-            if (price >= analysis.warning) return 'price-warning';
-            return '';
-        }
-
-        function getPriceLabel(price, analysis) {
-            if (!analysis) return '';
-            
-            if (price <= analysis.excellent) return '🟢 قیمت عالی';
-            if (price >= analysis.danger) return '🔴 قیمت بالا';
-            if (price >= analysis.warning) return '🟡 قیمت متوسط رو به بالا';
-            return '';
-        }
-
-        async function fetchOffers() {
-            showLoading();
-            const containerEl = document.getElementById('offers_container');
-            const noOffersEl = document.getElementById('no_offers_message');
-            const countEl = document.getElementById('offers_count');
-
-            try {
-                const response = await fetch(`${API_BACKEND_URL}/api/sale-offers`);
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-
-                const offers = await response.json();
-                hideLoading();
-
+            if (response.ok) {
                 const visibleOffers = offers.filter(offer => offer.seller_national_id !== currentNationalId);
-                currentOffers = visibleOffers;
                 
-                // بروزرسانی تعداد
-                countEl.textContent = visibleOffers.length;
-
                 if (visibleOffers.length === 0) {
+                    noOffersEl.querySelector('p').textContent = "در حال حاضر هیچ پیشنهاد فعالی از سایر کاربران برای فروش وجود ندارد.";
                     noOffersEl.classList.remove('hidden');
-                    containerEl.innerHTML = '';
                     return;
                 }
 
-                noOffersEl.classList.add('hidden');
-
-                // تحلیل قیمت‌ها
-                const analysis = getPriceAnalysis(visibleOffers);
+                // منطق تحلیل قیمت‌ها (با آستانه حساس‌تر)
+                const prices = visibleOffers.map(o => o.normalized_price);
+                const averagePrice = prices.reduce((a, b) => a + b, 0) / prices.length;
+                const stdDev = Math.sqrt(prices.map(x => Math.pow(x - averagePrice, 2)).reduce((a, b) => a + b, 0) / prices.length);
+                const outlierThreshold = averagePrice + (1.5 * stdDev); // آستانه حساس‌تر (۱.۵ برابر انحراف معیار)
+                const cheapThreshold = averagePrice - (0.5 * stdDev);
 
                 containerEl.innerHTML = '';
-                visibleOffers.forEach((offer, index) => {
-                    const sellerName = `${offer.member?.first_name || 'نامشخص'} ${offer.member?.last_name || ''}`.trim();
+                visibleOffers.forEach(offer => {
+                    const sellerName = `${offer.member.first_name || ''} ${offer.member.last_name || ''}`;
                     const priceFormatted = offer.price.toLocaleString('fa-IR');
                     const normalizedPriceFormatted = offer.normalized_price.toLocaleString('fa-IR');
-                    
-                    const priceClass = getPriceClass(offer.normalized_price, analysis);
-                    const priceLabel = getPriceLabel(offer.normalized_price, analysis);
+
+                    let priceColorClass = '';
+                    if (offer.normalized_price < cheapThreshold) priceColorClass = 'text-success';
+                    else if (offer.normalized_price > outlierThreshold) priceColorClass = 'text-error';
+
+                    let outlierWarning = '';
+                    if (offer.normalized_price > outlierThreshold || offer.price < 1000000) {
+                        outlierWarning = `<p class="text-xs text-warning mt-1">توجه: قیمت خارج از محدوده متعارف است.</p>`;
+                    }
 
                     const cardHTML = `
-                        <div class="card bg-base-100 shadow-lg hover:shadow-xl offer-card" style="animation-delay: ${index * 100}ms">
+                        <div class="card bg-base-100 shadow-md w-full">
                             <div class="card-body">
-                                <div class="flex justify-between items-start mb-2">
-                                    <h2 class="card-title text-lg">${sellerName}</h2>
-                                    ${priceLabel ? `<span class="badge badge-sm ${priceClass.includes('excellent') ? 'badge-success' : priceClass.includes('danger') ? 'badge-error' : 'badge-warning'}">${priceLabel.split(' ')[0]}</span>` : ''}
-                                </div>
-                                
-                                <div class="space-y-2">
-                                    <div class="flex justify-between">
-                                        <span class="text-sm text-gray-600">درصد سهام:</span>
-                                        <span class="font-bold">${offer.percentage_to_sell}%</span>
-                                    </div>
-                                    
-                                    <div class="flex justify-between">
-                                        <span class="text-sm text-gray-600">قیمت کل:</span>
-                                        <span class="font-bold text-primary">${priceFormatted} تومان</span>
-                                    </div>
-                                    
-                                    <div class="flex justify-between">
-                                        <span class="text-sm text-gray-600">قیمت هر ۱۰۰٪:</span>
-                                        <span class="font-bold ${priceClass}">${normalizedPriceFormatted} تومان</span>
-                                    </div>
-                                </div>
-
-                                ${priceLabel ? `<div class="mt-2"><span class="text-xs ${priceClass}">${priceLabel}</span></div>` : ''}
-                                
+                                <h2 class="card-title text-lg">${sellerName}</h2>
+                                <div class="divider my-1"></div>
+                                <p><strong>درصد سهام:</strong> ${offer.percentage_to_sell}%</p>
+                                <p><strong>قیمت پیشنهادی:</strong> <span class="${priceColorClass}">${priceFormatted} تومان</span></p>
+                                <p class="text-sm text-gray-500 mt-2">قیمت معادل ۱۰۰٪: <span class="font-bold ${priceColorClass}">${normalizedPriceFormatted} تومان</span></p>
+                                ${outlierWarning}
                                 <div class="card-actions justify-end mt-4">
-                                    <a href="offer_detail.html?id=${offer.id}&nid=${currentNationalId}" 
-                                       class="btn btn-primary btn-sm w-full">
-                                        مشاهده جزئیات و خرید
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" />
-                                        </svg>
-                                    </a>
+                                    <a href="offer_detail.html?id=${offer.id}&nid=${currentNationalId}" class="btn btn-primary btn-sm">مشاهده و درخواست خرید</a>
                                 </div>
                             </div>
                         </div>
                     `;
                     containerEl.innerHTML += cardHTML;
                 });
-
-                // بازیابی حالت نمایش از localStorage
-                const savedView = localStorage.getItem('offers_view') || 'grid';
-                setView(savedView);
-
-            } catch (error) {
-                console.error('Error fetching offers:', error);
-                showError('خطا در بارگذاری پیشنهادات. لطفاً دوباره تلاش کنید.');
+            } else {
+                noOffersEl.querySelector('p').textContent = offers.error || 'خطا در بارگذاری اطلاعات.';
+                noOffersEl.classList.remove('hidden');
             }
+        } catch (error) {
+            loadingEl.classList.add('hidden');
+            noOffersEl.querySelector('p').textContent = 'خطا در ارتباط با سرور.';
+            noOffersEl.classList.remove('hidden');
         }
-
-        // بروزرسانی خودکار هر 30 ثانیه
-        setInterval(() => {
-            if (document.visibilityState === 'visible') {
-                fetchOffers();
-            }
-        }, 30000);
-    </script>
+    }
+</script>
 </body>
 </html>

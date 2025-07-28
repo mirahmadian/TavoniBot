@@ -122,10 +122,7 @@
             const data = await response.json();
 
             if (response.ok) {
-                // --- بخش اصلاح شده ---
                 document.getElementById('welcome_message').textContent = `سهامدار گرامی ${data.first_name} ${data.last_name}، خوش آمدید.`;
-                // --- پایان بخش اصلاح شده ---
-                
                 document.getElementById('share_percentage').textContent = data.share_percentage || 0;
                 loadingEl.classList.add('hidden');
                 contentEl.classList.remove('hidden');

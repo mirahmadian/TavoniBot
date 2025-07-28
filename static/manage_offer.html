@@ -79,7 +79,7 @@
         const requestsContainer = document.getElementById('requests_container');
         const noRequestsEl = document.getElementById('no_requests_message');
         try {
-            const response = await fetch(`${API_BACKEND_URL}/api/my-offers/${offer_id}?nid=${currentNationalId}`);
+            const response = await fetch(`${API_BACKEND_URL}/api/my-offers/${offerId}?nid=${currentNationalId}`);
             const data = await response.json();
             loadingEl.classList.add('hidden');
             contentEl.classList.remove('hidden');
@@ -88,8 +88,7 @@
                 document.getElementById('offer_price').textContent = data.price.toLocaleString('fa-IR');
                 const statusEl = document.getElementById('offer_status');
                 
-                // نمایش مستقیم متن فارسی که از سرور آمده
-                statusEl.textContent = data.status;
+                statusEl.textContent = data.status; // نمایش مستقیم متن فارسی از سرور
 
                 if(data.status === 'فعال') { statusEl.classList.add('badge-success'); }
                 else { statusEl.classList.add('badge-warning'); }
