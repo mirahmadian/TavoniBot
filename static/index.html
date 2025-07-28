@@ -225,10 +225,6 @@ function validateNationalId(code) {
 
                 if (response.ok) {
                     clearInterval(otpTimer);
-                    showModal('موفقیت', result.message, true);
-                    
-                    // تاخیر کوتاه برای نمایش پیام موفقیت
-                    setTimeout(() => {
                         if (result.action === 'go_to_dashboard') {
                             window.location.href = `dashboard.html?nid=${currentNationalId}`;
                         } else {
