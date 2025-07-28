@@ -159,7 +159,7 @@ def handle_sale_offers():
             total_shares = member_res.data[0].get('share_percentage', 100)
             offers_res = supabase.table('sale_offers').select('percentage_to_sell').eq('seller_national_id', national_id).eq('status', 'active').execute()
             already_listed_percentage = sum(offer['percentage_to_sell'] for offer in offers_res.data)
-           if (already_listed_percentage + percentage_to_sell) > total_shares:
+if (already_listed_percentage + percentage_to_sell) > total_shares:
     remaining = total_shares - already_listed_percentage
     if remaining <= 0:
         return jsonify({"error": "شما قبلاً تمام سهم خود را برای فروش گذاشته‌اید و سهمی برای فروش باقی نمانده است."}), 400
